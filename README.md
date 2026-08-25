@@ -14,6 +14,45 @@ uploaded.
   rather than crashing.
 - ~150 MB free for the speech model, which the app downloads on first use.
 
+## Your phone will warn you. Here is why, and what to do
+
+Android blocks sideloaded apps that use an **accessibility service**, and this app
+needs one — it is the only way an app can notice the Essential Key being held.
+The same service is also what types the text back into whatever you were writing
+in. That is a genuinely sensitive permission, so the warning is doing its job;
+there is no version of this app that both works and avoids it.
+
+What the app can actually do is listed above and worth checking against the
+[source](https://github.com/ggml-org/whisper.cpp) it transcribes with: no audio
+and no text ever leaves the phone. The only network request it makes is
+downloading the speech model you choose.
+
+If that is not good enough for you, do not install it. That is a reasonable call.
+
+### Samsung — "Blocked by Auto Blocker"
+
+Auto Blocker is on by default on One UI 6.1 and later and refuses all sideloading.
+
+**Settings → Security and privacy → Auto Blocker → off.**
+
+You can turn it back on after installing; the app keeps working.
+
+### "App blocked by Play Protect" / "Unsafe app blocked"
+
+Tap **More details**, then **Install anyway**.
+
+If there is no such option, Play Protect scanning has to come off for the
+install:
+
+**Play Store → your profile picture → Play Protect → ⚙ → Scan apps with Play
+Protect → off.** Install, then **turn it back on** — it will leave the installed
+app alone.
+
+### Chrome — "This file may be harmful"
+
+Open **Downloads**, find the APK, tap the menu next to it and choose **Download
+anyway** or **Keep**.
+
 ## Setup
 
 1. Install the APK.
