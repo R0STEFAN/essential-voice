@@ -6,6 +6,11 @@ uploaded.
 
 **[Download the latest APK](../../releases/latest)**
 
+Updates are not automatic and the app cannot install them — it will tell you a
+newer build exists and send you here. If you would rather that happened by
+itself, point [Obtainium](https://github.com/ImranR98/Obtainium) at this
+repository and it will track releases for you.
+
 ## Requirements
 
 - Android 12 or newer
