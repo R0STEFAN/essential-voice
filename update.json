@@ -1,6 +1,7 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0",
-  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.0/essential-voice-1.0.apk",
-  "notes": "First public build."
+  "versionCode": 2,
+  "versionName": "1.1",
+  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.1/essential-voice-1.1.apk",
+  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.1",
+  "notes": "Removed the self-install permission. Updates are now a link out, or Obtainium."
 }
