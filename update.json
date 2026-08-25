@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1",
-  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.1/essential-voice-1.1.apk",
-  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.1",
-  "notes": "Removed the self-install permission. Updates are now a link out, or Obtainium."
+  "versionCode": 3,
+  "versionName": "1.2",
+  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.2/essential-voice-1.2.apk",
+  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.2",
+  "notes": "Press and hold the power button can now start a dictation, via the assistant role."
 }
