@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2",
-  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.2/essential-voice-1.2.apk",
-  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.2",
-  "notes": "Press and hold the power button can now start a dictation, via the assistant role."
+  "versionCode": 4,
+  "versionName": "1.3",
+  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.3/essential-voice-1.3.apk",
+  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.3",
+  "notes": "Dragging the pill actually follows your finger now. Updates moved to the top."
 }
