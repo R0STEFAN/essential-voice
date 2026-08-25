@@ -19,44 +19,65 @@ repository and it will track releases for you.
   rather than crashing.
 - ~150 MB free for the speech model, which the app downloads on first use.
 
-## Your phone will warn you. Here is why, and what to do
+## "App blocked to protect your device"
 
-Android blocks sideloaded apps that use an **accessibility service**, and this app
-needs one — it is the only way an app can notice the Essential Key being held.
-The same service is also what types the text back into whatever you were writing
-in. That is a genuinely sensitive permission, so the warning is doing its job;
-there is no version of this app that both works and avoids it.
+You will hit this, and there is no "install anyway" button in it. Here is
+exactly what is happening and what works.
 
-What the app can actually do is listed above and worth checking against the
-[source](https://github.com/ggml-org/whisper.cpp) it transcribes with: no audio
-and no text ever leaves the phone. The only network request it makes is
-downloading the speech model you choose.
+Google blocks apps installed **from a browser, messaging app or file manager**
+when they declare one of four permissions: `ACCESSIBILITY`,
+`NOTIFICATION_LISTENER`, `READ_SMS`, `RECEIVE_SMS`. Those four get abused for
+financial fraud, so the block is deliberate and there is no override in the
+dialog.
 
-If that is not good enough for you, do not install it. That is a reasonable call.
+This app needs the accessibility one. It is the only way an app can notice the
+Essential Key being held, and it is also what types the transcript back into
+whatever you were writing in. There is no version of this that works without it.
 
-### Samsung — "Blocked by Auto Blocker"
+Note what is being blocked: **the way you installed it**, not the file. The same
+APK installs without complaint through a route that is not a browser.
 
-Auto Blocker is on by default on One UI 6.1 and later and refuses all sideloading.
+### The simple way
 
-**Settings → Security and privacy → Auto Blocker → off.**
+1. **Play Store → your profile picture → Play Protect → ⚙ (top right)**
+2. Turn off **Scan apps with Play Protect**
+3. Install the APK
+4. **Turn it back on**
 
-You can turn it back on after installing; the app keeps working.
+Play Protect may later re-scan and offer to remove the app. Decline, or keep
+scanning off if that keeps happening.
 
-### "App blocked by Play Protect" / "Unsafe app blocked"
+### Samsung, additionally
 
-Tap **More details**, then **Install anyway**.
+Auto Blocker is on by default on One UI 6.1+ and refuses all sideloading on its
+own, separately from Play Protect:
 
-If there is no such option, Play Protect scanning has to come off for the
-install:
+**Settings → Security and privacy → Auto Blocker → off**
 
-**Play Store → your profile picture → Play Protect → ⚙ → Scan apps with Play
-Protect → off.** Install, then **turn it back on** — it will leave the installed
-app alone.
+### If you would rather not touch Play Protect
 
-### Chrome — "This file may be harmful"
+Install through something that is not a browser. Either works and neither needs
+root:
 
-Open **Downloads**, find the APK, tap the menu next to it and choose **Download
-anyway** or **Keep**.
+- **adb**: `adb install essential-voice-<version>.apk`
+- **[InstallerX Revived](https://github.com/wxxsfxyzm/InstallerX-Revived)** driven
+  by **[Shizuku](https://shizuku.rikka.app/)** — Shizuku grants elevated rights
+  over wireless debugging, and InstallerX installs through that instead of the
+  system installer.
+
+### Is this app worth doing that for?
+
+Decide deliberately. It records your microphone, watches a hardware key, and can
+read and write the text field you are focused on. That is genuinely the
+permission set of spyware, and you have my word for it and nothing else.
+
+What it does not have is `INTERNET` access to anywhere but GitHub, no analytics,
+and no background service. Audio is transcribed on the phone by
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp) and discarded. Nothing is
+stored and nothing is uploaded.
+
+If that is not good enough, do not install it. That is a reasonable call, and
+Play Protect is not wrong to be suspicious.
 
 ## Setup
 
