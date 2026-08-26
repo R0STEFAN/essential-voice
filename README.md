@@ -19,6 +19,36 @@ repository and it will track releases for you.
   rather than crashing.
 - ~150 MB free for the speech model, which the app downloads on first use.
 
+## Source
+
+The app is open source, Apache-2.0. Everything that goes into the APK is in this
+repository except two things it fetches rather than stores: `whisper-src/`, which
+is a clone of [whisper.cpp](https://github.com/ggml-org/whisper.cpp), and the
+speech model, which the app downloads on first use.
+
+`DEVELOPING.md` is the real documentation — how it is built, why the pill and
+the accessibility service work the way they do, and the two build traps that
+cost about 17x each in transcription speed.
+
+Short version:
+
+```bash
+git clone https://github.com/email2ishaanpatel-collab/essential-voice.git
+cd essential-voice
+git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git whisper-src
+gradle :app:assembleDebug
+```
+
+Needs the Android NDK `27.2.12479018` and CMake `3.22.1`. A build without
+`keystore.properties` is signed with the debug key, which is fine for running it
+and cannot update an existing install.
+
+## Licence
+
+Apache-2.0 — see `LICENSE`. Third-party components and their licences are listed
+in `NOTICE`, along with the one file in this repository that is not covered:
+the Nothing Headphone (1) product photograph.
+
 ## "App blocked to protect your device"
 
 You will hit this, and there is no "install anyway" button in it. Here is

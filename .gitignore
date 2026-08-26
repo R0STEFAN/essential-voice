@@ -1,0 +1,22 @@
+.gradle/
+build/
+local.properties
+.cxx/
+whisper-src/
+*.iml
+
+keystore.properties
+*.jks
+
+# Local test builds. Never released.
+test-build/
+
+# Release artefacts. These live on GitHub Releases, not in the tree.
+dist/
+
+# The old separate checkout of this same repository, from when only
+# update.json lived here. Redundant now that the source is in the repo.
+publish/
+
+.kotlin/
+.idea/

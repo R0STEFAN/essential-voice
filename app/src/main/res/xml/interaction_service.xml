@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  supportsAssist is what puts the app in the "Digital assistant app" picker, and
+  so what makes "press and hold power" able to reach it.
+-->
+<voice-interaction-service
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.ishaan.essentialvoice.trigger.VoiceAssistSessionService"
+    android:recognitionService="com.ishaan.essentialvoice.trigger.VoiceAssistRecognitionService"
+    android:settingsActivity="com.ishaan.essentialvoice.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />

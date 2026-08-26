@@ -1,0 +1,46 @@
+Essential Voice
+Copyright 2026 Ishaan Patel
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+
+
+THIRD-PARTY COMPONENTS
+======================
+
+whisper.cpp and ggml
+    MIT License. Copyright (c) 2023-2024 The ggml authors.
+    https://github.com/ggml-org/whisper.cpp
+
+    Not redistributed here: the build clones it into whisper-src/, which is
+    ignored by git. It is compiled into the released APK, so the notice above
+    travels with the binary.
+
+Geist and Geist Mono
+    SIL Open Font License 1.1. Copyright (c) 2023 Vercel, Inc.
+    https://github.com/vercel/geist-font
+
+    Font files are in app/src/main/res/font/.
+
+Whisper models (ggml-*.bin)
+    MIT License. Copyright (c) 2022 OpenAI, packaged by the ggml authors.
+    Downloaded by the app at runtime from Hugging Face; none are in this
+    repository or in the APK.
+
+
+NOT COVERED BY THE LICENSE ABOVE
+================================
+
+app/src/main/res/drawable/headphone_one.jpg
+    A product photograph of the Nothing Headphone (1), copyright Nothing
+    Technology Limited. Included to illustrate what the support section is
+    raising money for. It is not the author's work and is not licensed under
+    Apache-2.0 with the rest of this repository.

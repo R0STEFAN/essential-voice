@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Essential Voice</string>
+    <string name="placement_title">Place the pill</string>
+    <string name="accessibility_label">Essential Voice</string>
+    <string name="accessibility_summary">Hold the Essential Key to dictate</string>
+    <string name="accessibility_description">Lets Essential Voice notice the Essential Key being held so it can record you, and place the transcribed text into the field you were typing in. Audio is transcribed on this phone and never leaves it.</string>
+    <string name="trigger_label">Talk (Essential Voice)</string>
+</resources>

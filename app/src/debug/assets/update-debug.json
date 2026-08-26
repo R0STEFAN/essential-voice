@@ -1,0 +1,24 @@
+{
+  "_comment": "Debug builds only. Updater reads this instead of the network, so the What's new panel — pictures included — can be looked at before a release exists. Delete this file to make a debug build check the real manifest again.",
+  "versionCode": 99,
+  "versionName": "1.5-test",
+  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.4/essential-voice-1.4.apk",
+  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases",
+  "notes": "Test manifest. Nothing here is real.",
+  "whatsNew": [
+    {
+      "title": "What's new, in the app",
+      "body": "Updates now lists what each build changed, with pictures when a release has them.",
+      "image": "asset:whatsnew-a.png"
+    },
+    {
+      "title": "A way to chip in",
+      "body": "There is a support section at the bottom. Nothing in the app is behind it.",
+      "image": "asset:whatsnew-b.png"
+    },
+    {
+      "title": "Lines without a picture",
+      "body": "An entry with no image is just text, and the panel closes up around it."
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Five bars, the same waveform the pill draws while it is listening. Geometry is
+  measured off the 1024px artwork rather than eyeballed: every bar is 92 wide,
+  the centres are 144 apart, and the fill is flat black, not the app's ink.
+
+  Drawn rather than exported because it is nothing but rounded rectangles and
+  circles — a vector is exact at every density, and it is also what the
+  monochrome layer needs, since a themed icon is tinted flat and a PNG would
+  carry its own colours into that.
+
+  Laid out inside the 66-unit safe circle of the 108x108 adaptive canvas, so no
+  launcher mask can clip the outer two dots.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#000000"
+        android:pathData="M23.11,51.13 A4.25,4.25 0 0,1 31.61,51.13 L31.61,56.87 A4.25,4.25 0 0,1 23.11,56.87 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M40.68,54.09 m-4.25,0 a4.25,4.25 0 1,0 8.51,0 a4.25,4.25 0 1,0 -8.51,0" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M49.74,43.36 A4.25,4.25 0 0,1 58.26,43.36 L58.26,64.64 A4.25,4.25 0 0,1 49.74,64.64 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M63.06,50.02 A4.25,4.25 0 0,1 71.57,50.02 L71.57,57.98 A4.25,4.25 0 0,1 63.06,57.98 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M80.64,54.09 m-4.25,0 a4.25,4.25 0 1,0 8.51,0 a4.25,4.25 0 1,0 -8.51,0" />
+</vector>

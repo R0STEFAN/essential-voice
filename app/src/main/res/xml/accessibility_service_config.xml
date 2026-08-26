@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  flagRequestFilterKeyEvents is the whole point: it is what lets the service see
+  the Essential Key go down and, more importantly, come back up. Window content
+  retrieval is what lets the finished text be pasted into the focused field.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeViewFocused"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:canRequestFilterKeyEvents="true"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_description"
+    android:notificationTimeout="100"
+    android:settingsActivity="com.ishaan.essentialvoice.MainActivity"
+    android:summary="@string/accessibility_summary" />

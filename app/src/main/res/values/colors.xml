@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ev_yellow">#FFD900</color>
+    <color name="ev_ink">#1B1B1D</color>
+    <color name="ev_white">#FFFFFF</color>
+</resources>
