@@ -1,7 +1,25 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
-  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.4/essential-voice-1.4.apk",
-  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.4",
-  "notes": "Your phone will now tell you when a new version is out. Says DONE instead of a tick."
+  "versionCode": 6,
+  "versionName": "1.5",
+  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.5/essential-voice-1.5.apk",
+  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.5",
+  "notes": "Copy to clipboard now means it. Plus a What's new list, a box for ideas, and a new look.",
+  "whatsNew": [
+    {
+      "title": "Copy to clipboard now means it",
+      "body": "With the switch off, what you dictated was still being left on the clipboard. It is taken back after the paste, and marked so it stays out of clipboard history."
+    },
+    {
+      "title": "What's new, and a way to reach me",
+      "body": "This list, under Updates. At the bottom there is a box for ideas that opens an email to me, and a way to chip in if you want to."
+    },
+    {
+      "title": "No Essential Key? Use the power button",
+      "body": "The assistant-gesture setup moved under The key, folded away until you need it."
+    },
+    {
+      "title": "New icon, and a flatter look",
+      "body": "Grey page, near-white cards, no outlines anywhere, and buttons that are black instead of yellow."
+    }
+  ]
 }
