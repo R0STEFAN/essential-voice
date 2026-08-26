@@ -1,25 +1,25 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
-  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v1.5/essential-voice-1.5.apk",
-  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v1.5",
-  "notes": "Copy to clipboard now means it. Plus a What's new list, a box for ideas, and a new look.",
+  "versionCode": 7,
+  "versionName": "2.0",
+  "url": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/download/v2.0/essential-voice-2.0.apk",
+  "page": "https://github.com/email2ishaanpatel-collab/essential-voice/releases/tag/v2.0",
+  "notes": "Notes you can dictate straight into the pill, a dark mode that follows the phone, and a service that is far lighter on the battery.",
   "whatsNew": [
     {
-      "title": "Copy to clipboard now means it",
-      "body": "With the switch off, what you dictated was still being left on the clipboard. It is taken back after the paste, and marked so it stays out of clipboard history."
+      "title": "Notes, dictated",
+      "body": "Start a sentence with the word “note” and the pill grows into a card instead of typing. Letting go of the key saves it. They have their own tab now, next to the settings."
     },
     {
-      "title": "What's new, and a way to reach me",
-      "body": "This list, under Updates. At the bottom there is a box for ideas that opens an email to me, and a way to chip in if you want to."
+      "title": "Dark mode",
+      "body": "Follows the phone, or the toggle under the name at the top of the page. Everything crossfades rather than snapping."
     },
     {
-      "title": "No Essential Key? Use the power button",
-      "body": "The assistant-gesture setup moved under The key, folded away until you need it."
+      "title": "Much lighter on the battery",
+      "body": "The service was subscribed to every screen change in every app on the phone and threw them all away. It no longer asks for them, and speech is transcribed over as much audio as you actually spoke instead of a fixed thirty seconds."
     },
     {
-      "title": "New icon, and a flatter look",
-      "body": "Grey page, near-white cards, no outlines anywhere, and buttons that are black instead of yellow."
+      "title": "A page that is easier to get through",
+      "body": "Setting up is one card, with the model picker inside it. The long explanations are behind info dots, and What's new is a dropdown."
     }
   ]
 }
