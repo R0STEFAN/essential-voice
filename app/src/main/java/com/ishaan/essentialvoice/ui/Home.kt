@@ -95,6 +95,8 @@ fun HomeScreen(
     onDeleteModel: (QualityTier) -> Unit,
     onCancelDownload: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val type = LocalEvType.current
     val scope = rememberCoroutineScope()
     var showUrlDialog by remember { mutableStateOf(false) }
 
@@ -107,8 +109,8 @@ fun HomeScreen(
                 val safeName = if (rawName.endsWith(".bin")) rawName else "$rawName.bin"
                 val target = File(ModelCatalog.dir(context), safeName)
                 runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        target.outputStream().use { output ->
+                    context.contentResolver.openInputStream(uri)?.use { input: java.io.InputStream ->
+                        target.outputStream().use { output: java.io.OutputStream ->
                             input.copyTo(output)
                         }
                     }
