@@ -9,10 +9,10 @@ const val SAMPLE_RATE = 16_000
 object Audio {
 
     /** Peak we normalise quiet recordings up to. */
-    private const val TARGET_PEAK = 0.55f
+    private const val TARGET_PEAK = 0.45f
 
     /** Ceiling on the boost, so a silent room does not become amplified hiss. */
-    private const val MAX_GAIN = 12f
+    private const val MAX_GAIN = 3.5f
 
     fun rms(a: FloatArray): Float {
         if (a.isEmpty()) return 0f

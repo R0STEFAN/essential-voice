@@ -90,10 +90,15 @@ object WhisperEngine {
                 val threads = defaultThreads()
 
                 val language = Prefs.get(context).now.language
+                val prompt = when (language) {
+                    "uk" -> "Вітаю. Це звичайна диктовка тексту, речення та замітки."
+                    "en" -> "Hello, this is standard speech dictation."
+                    else -> ""
+                }
                 val text = runCatching {
                     WhisperLib.nativeTranscribe(
                         p, audio, threads, language, false,
-                        tier.beamSize, tier.bestOf, 0.6f, "",
+                        tier.beamSize, tier.bestOf, 0.6f, prompt,
                     )
                 }.getOrElse { return@withLock Result.failure(it) }
 

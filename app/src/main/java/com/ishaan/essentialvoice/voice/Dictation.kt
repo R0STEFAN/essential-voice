@@ -152,7 +152,7 @@ object Dictation {
             val started = System.currentTimeMillis()
             val prepared = withContext(Dispatchers.Default) {
                 Audio.normalise(audio)
-                Audio.padTo(audio, 1.1f)
+                Audio.padTo(audio, 0.6f)
             }
 
             WhisperEngine.transcribe(ctx, prepared).fold(
