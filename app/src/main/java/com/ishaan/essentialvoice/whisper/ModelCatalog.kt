@@ -25,12 +25,14 @@ data class QualityTier(
     val fileName: String,
     val bytes: Long,
     /** >1 selects beam search; 1 means greedy sampling. */
-    val beamSize: Int,
+    val beamSize: Int = 1,
     /** Candidates the sampler keeps. */
-    val bestOf: Int,
-    val millisPer10s: Int,
+    val bestOf: Int = 2,
+    val millisPer10s: Int = 3000,
+    val downloadUrl: String? = null,
+    val isCustom: Boolean = false,
 ) {
-    val sizeMb: Int get() = ((bytes + 500_000) / 1_000_000).toInt()
+    val sizeMb: Int get() = if (bytes > 0) ((bytes + 500_000) / 1_000_000).toInt() else 0
 
     /** Human reading of [millisPer10s]: "1.5s", "6s". */
     val waitLabel: String
@@ -43,10 +45,10 @@ data class QualityTier(
 
     fun isInstalled(context: Context): Boolean {
         val f = file(context)
-        return f.isFile && f.length() == bytes
+        return if (bytes > 0) (f.isFile && f.length() == bytes) else (f.isFile && f.length() > 0)
     }
 
-    val url: String get() = "${ModelCatalog.BASE_URL}$fileName"
+    val url: String get() = downloadUrl ?: "${ModelCatalog.BASE_URL}$fileName"
 }
 
 object ModelCatalog {
@@ -56,14 +58,15 @@ object ModelCatalog {
 
     val tiers = listOf(
         QualityTier(
-            id = "fast",
-            label = "Fast",
-            sub = "Multilingual Tiny. Fast short commands; may miss context.",
-            fileName = "ggml-tiny.bin",
-            bytes = 77_691_713L,
+            id = "futo_244",
+            label = "FUTO 244",
+            sub = "FUTO Multilingual-244 (ACFT fine-tuned). Best for Ukrainian & voice dictation.",
+            fileName = "voice-input-multilingual-244.bin",
+            bytes = 264_464_624L,
             beamSize = 1,
             bestOf = 2,
-            millisPer10s = 1_500,
+            millisPer10s = 3_500,
+            downloadUrl = "https://keyboard.futo.org/voice-input-multilingual-244.bin",
         ),
         QualityTier(
             id = "balanced",
@@ -78,12 +81,22 @@ object ModelCatalog {
         QualityTier(
             id = "accurate",
             label = "Accurate",
-            sub = "Multilingual Small. Recommended for Ukrainian, surzhyk and mixed speech.",
+            sub = "Multilingual Small. High precision for Ukrainian and surzhyk.",
             fileName = "ggml-small.bin",
             bytes = 487_601_967L,
             beamSize = 1,
             bestOf = 2,
             millisPer10s = 6_000,
+        ),
+        QualityTier(
+            id = "fast",
+            label = "Fast",
+            sub = "Multilingual Tiny. Fast short commands; may miss context.",
+            fileName = "ggml-tiny.bin",
+            bytes = 77_691_713L,
+            beamSize = 1,
+            bestOf = 2,
+            millisPer10s = 1_500,
         ),
         QualityTier(
             id = "maximum",
@@ -97,14 +110,59 @@ object ModelCatalog {
         ),
     )
 
-    fun byId(id: String): QualityTier = tiers.firstOrNull { it.id == id } ?: tiers[1]
+    fun customTiers(context: Context): List<QualityTier> {
+        val dir = dir(context)
+        val standardFiles = tiers.map { it.fileName }.toSet()
+        val files = dir.listFiles { f ->
+            f.isFile && f.name.endsWith(".bin") && !f.name.endsWith(".part") && f.name !in standardFiles
+        } ?: return emptyList()
+        return files.map { file ->
+            val raw = file.nameWithoutExtension
+                .removePrefix("ggml-")
+                .removePrefix("voice-input-")
+                .replace("-", " ")
+                .replace("_", " ")
+            val label = raw.split(" ")
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            QualityTier(
+                id = "custom_${file.name}",
+                label = label.ifBlank { file.name },
+                sub = "Custom model (${file.length() / 1_000_000} MB).",
+                fileName = file.name,
+                bytes = file.length(),
+                beamSize = 1,
+                bestOf = 2,
+                millisPer10s = 4_000,
+                isCustom = true,
+            )
+        }
+    }
+
+    fun allTiers(context: Context): List<QualityTier> = tiers + customTiers(context)
+
+    fun byId(context: Context, id: String): QualityTier =
+        allTiers(context).firstOrNull { it.id == id } ?: byId(id)
+
+    fun byId(id: String): QualityTier =
+        tiers.firstOrNull { it.id == id } ?: QualityTier(
+            id = id,
+            label = id.removePrefix("custom_"),
+            sub = "Custom model",
+            fileName = if (id.startsWith("custom_")) id.removePrefix("custom_") else id,
+            bytes = 0L,
+            beamSize = 1,
+            bestOf = 2,
+            millisPer10s = 4_000,
+            isCustom = true,
+        )
 
     fun dir(context: Context): File =
         File(context.filesDir, "models").apply { if (!exists()) mkdirs() }
 
     /** Deduplicated by file: two tiers can share one model. */
     fun installedBytes(context: Context): Long =
-        tiers.filter { it.isInstalled(context) }
+        allTiers(context).filter { it.isInstalled(context) }
             .distinctBy { it.fileName }
-            .sumOf { it.bytes }
+            .sumOf { it.file(context).length() }
 }

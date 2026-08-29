@@ -6,6 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.File
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -88,9 +95,29 @@ fun HomeScreen(
     onDeleteModel: (QualityTier) -> Unit,
     onCancelDownload: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val type = LocalEvType.current
+    val scope = rememberCoroutineScope()
+    var showUrlDialog by remember { mutableStateOf(false) }
 
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                val rawName = queryDocName(context, uri) ?: "custom_${System.currentTimeMillis()}.bin"
+                val safeName = if (rawName.endsWith(".bin")) rawName else "$rawName.bin"
+                val target = File(ModelCatalog.dir(context), safeName)
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    prefs.setQualityTier("custom_$safeName")
+                    Dictation.onTierChanged()
+                }
+            }
+        }
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -258,7 +285,7 @@ fun HomeScreen(
                 .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            ModelCatalog.tiers.forEach { tier ->
+            ModelCatalog.allTiers(context).forEach { tier ->
                 TierCard(
                     modifier = Modifier.width(268.dp).fillMaxHeight(),
                     tier = tier,
@@ -275,8 +302,112 @@ fun HomeScreen(
                 )
             }
         }
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            EvButton(
+                label = "Import .bin file",
+                kind = EvButtonKind.Quiet,
+                modifier = Modifier.weight(1f),
+            ) {
+                filePicker.launch(arrayOf("*/*"))
+            }
+            EvButton(
+                label = "Download by URL",
+                kind = EvButtonKind.Quiet,
+                modifier = Modifier.weight(1f),
+            ) {
+                showUrlDialog = true
+            }
+        }
         Spacer(Modifier.height(12.dp))
         StorageLine(context)
+
+        if (showUrlDialog) {
+            var urlInput by remember { mutableStateOf("") }
+            var nameInput by remember { mutableStateOf("") }
+            var errorText by remember { mutableStateOf<String?>(null) }
+
+            AlertDialog(
+                onDismissRequest = { showUrlDialog = false },
+                containerColor = EV.Surface,
+                titleContentColor = EV.Ink,
+                textContentColor = EV.InkMuted,
+                shape = RoundedCornerShape(EV.CornerCard),
+                title = { EvText("Add Custom Model", type.title) },
+                text = {
+                    Column {
+                        EvText("Direct URL to a whisper .bin model file:", type.sub)
+                        Spacer(Modifier.height(8.dp))
+                        BasicTextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it },
+                            textStyle = type.mono.copy(color = EV.Ink),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(EV.CornerButton))
+                                .background(EV.SurfaceSunk)
+                                .padding(12.dp),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        EvText("Model Name (optional):", type.sub)
+                        Spacer(Modifier.height(6.dp))
+                        BasicTextField(
+                            value = nameInput,
+                            onValueChange = { nameInput = it },
+                            textStyle = type.body.copy(color = EV.Ink),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(EV.CornerButton))
+                                .background(EV.SurfaceSunk)
+                                .padding(12.dp),
+                        )
+                        if (errorText != null) {
+                            Spacer(Modifier.height(8.dp))
+                            EvText(errorText!!, type.sub, color = EV.Red)
+                        }
+                    }
+                },
+                confirmButton = {
+                    EvButton(label = "DOWNLOAD") {
+                        val trimmedUrl = urlInput.trim()
+                        if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                            errorText = "Please enter a valid HTTP/HTTPS URL"
+                            return@EvButton
+                        }
+                        val fileNameFromUrl = trimmedUrl.substringAfterLast('/').substringBefore('?')
+                        val finalFileName = when {
+                            fileNameFromUrl.endsWith(".bin") -> fileNameFromUrl
+                            nameInput.isNotBlank() -> "${nameInput.trim().replace(' ', '_').lowercase()}.bin"
+                            else -> "model_${System.currentTimeMillis()}.bin"
+                        }
+                        val label = nameInput.ifBlank {
+                            finalFileName.removeSuffix(".bin").replace('_', ' ')
+                        }
+                        val customTier = QualityTier(
+                            id = "custom_$finalFileName",
+                            label = label,
+                            sub = "Custom downloaded model.",
+                            fileName = finalFileName,
+                            bytes = 0L,
+                            downloadUrl = trimmedUrl,
+                            isCustom = true,
+                        )
+                        showUrlDialog = false
+                        onDownload(customTier)
+                    }
+                },
+                dismissButton = {
+                    EvButton(label = "CANCEL", kind = EvButtonKind.Quiet) {
+                        showUrlDialog = false
+                    }
+                },
+            )
+        }
 
         // ---- language ------------------------------------------------------
         SectionLabel("Language")
@@ -1244,20 +1375,26 @@ private fun TierCard(
                 SelectDot(selected = selected, enabled = installed, onClick = onSelect)
             }
 
+            val context = LocalContext.current
+            val displayMb = when {
+                tier.sizeMb > 0 -> "${tier.sizeMb} MB"
+                installed -> "${tier.file(context).length() / 1_000_000} MB"
+                else -> "CUSTOM"
+            }
             Spacer(Modifier.height(14.dp))
             EvText(
-                "${tier.sizeMb} MB   ·   ~${tier.waitLabel} FOR 10s OF SPEECH",
+                "$displayMb   ·   ~${tier.waitLabel} FOR 10s OF SPEECH",
                 type.label,
                 color = if (selected) EV.Ink.copy(alpha = 0.66f) else EV.InkMuted,
             )
-
             if (isDownloading) {
                 Spacer(Modifier.height(14.dp))
                 EvProgress(running.fraction)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val totalMb = if (tier.sizeMb > 0) tier.sizeMb else (running.total / 1_000_000).toInt()
                     EvText(
-                        "${running.done / 1_000_000} / ${tier.sizeMb} MB",
+                        "${running.done / 1_000_000} / ${if (totalMb > 0) totalMb else "?"} MB",
                         type.mono,
                         Modifier.weight(1f),
                     )
@@ -1310,4 +1447,19 @@ private fun SelectDot(selected: Boolean, enabled: Boolean, onClick: () -> Unit) 
             Box(Modifier.size(9.dp).clip(CircleShape).background(EV.Yellow))
         }
     }
+}
+
+private fun queryDocName(context: Context, uri: Uri): String? {
+    var name: String? = null
+    if (uri.scheme == "content") {
+        runCatching {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) name = cursor.getString(idx)
+                }
+            }
+        }
+    }
+    return name ?: uri.lastPathSegment?.substringAfterLast('/')
 }

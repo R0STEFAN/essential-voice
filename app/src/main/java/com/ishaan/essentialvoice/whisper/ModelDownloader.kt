@@ -40,14 +40,13 @@ object ModelDownloader {
             _state.value = State.Idle
             return@withContext true
         }
-
         val part = File(target.parentFile, tier.fileName + ".part")
         var done = if (part.isFile) part.length() else 0L
+        var total = tier.bytes
         // A .part bigger than the finished file means a stale or corrupt attempt.
-        if (done > tier.bytes) { part.delete(); done = 0L }
+        if (total > 0 && done > total) { part.delete(); done = 0L }
 
-        _state.value = State.Running(tier.id, done, tier.bytes)
-
+        _state.value = State.Running(tier.id, done, total)
         var conn: HttpURLConnection? = null
         try {
             conn = (URL(tier.url).openConnection() as HttpURLConnection).apply {
@@ -67,6 +66,11 @@ object ModelDownloader {
                 return@withContext false
             }
 
+            if (total <= 0) {
+                val cl = conn.contentLengthLong
+                if (cl > 0) total = if (done > 0) done + cl else cl
+            }
+
             RandomAccessFile(part, "rw").use { out ->
                 out.seek(done)
                 conn.inputStream.use { input ->
@@ -84,16 +88,19 @@ object ModelDownloader {
                         // Publishing every chunk would spam the UI thread; 400KB is plenty.
                         if (done - lastPublish > 400_000) {
                             lastPublish = done
-                            _state.value = State.Running(tier.id, done, tier.bytes)
+                            _state.value = State.Running(tier.id, done, total)
                         }
                     }
                 }
             }
 
-            if (part.length() != tier.bytes) {
+            if (total > 0 && part.length() != total) {
                 _state.value = State.Failed(
-                    tier.id, "Incomplete: got ${part.length() / 1_000_000}MB of ${tier.sizeMb}MB"
+                    tier.id, "Incomplete: got ${part.length() / 1_000_000}MB of ${total / 1_000_000}MB"
                 )
+                return@withContext false
+            } else if (part.length() < 1_000_000L) {
+                _state.value = State.Failed(tier.id, "File is too small to be a valid model")
                 return@withContext false
             }
 
