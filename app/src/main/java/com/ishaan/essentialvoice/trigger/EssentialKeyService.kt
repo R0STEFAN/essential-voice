@@ -190,21 +190,6 @@ class EssentialKeyService : AccessibilityService() {
         return try {
             if (!focus.isEditable) return false
 
-            val shouldCopy = Prefs.get(this).now.copyToClipboard
-            if (!shouldCopy) {
-                // Direct insertion: does not touch or borrow the clipboard at all
-                val existing = focus.text?.toString() ?: ""
-                val joined = if (existing.isEmpty()) text else "$existing $text"
-                val args = android.os.Bundle().apply {
-                    putCharSequence(
-                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, joined,
-                    )
-                }
-                if (focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
-                    return true
-                }
-            }
-
             val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val previous = runCatching { clip.primaryClip }.getOrNull()
 
@@ -215,12 +200,10 @@ class EssentialKeyService : AccessibilityService() {
                 return true
             }
 
-            // Fall back to appending
-            val existing = focus.text?.toString() ?: ""
-            val joined = if (existing.isEmpty()) text else "$existing $text"
+            // Fall back to setting text only if paste action failed
             val args = android.os.Bundle().apply {
                 putCharSequence(
-                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, joined,
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text,
                 )
             }
             focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
@@ -233,7 +216,6 @@ class EssentialKeyService : AccessibilityService() {
             runCatching { focus.recycle() }
         }
     }
-
     /**
      * The transcript, flagged so the system does not put it in clipboard history
      * or flash it up in the paste toast. It is dictation: it may well be a
