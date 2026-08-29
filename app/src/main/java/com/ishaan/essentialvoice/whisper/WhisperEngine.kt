@@ -89,12 +89,10 @@ object WhisperEngine {
 
                 val threads = defaultThreads()
 
-                // Every shipped tier is an .en model, which carries no language
-                // tokens at all — asking one for another language produces
-                // confident nonsense, so English is not a setting here.
+                val language = Prefs.get(context).now.language
                 val text = runCatching {
                     WhisperLib.nativeTranscribe(
-                        p, audio, threads, "en", false,
+                        p, audio, threads, language, false,
                         tier.beamSize, tier.bestOf, 0.6f, "",
                     )
                 }.getOrElse { return@withLock Result.failure(it) }

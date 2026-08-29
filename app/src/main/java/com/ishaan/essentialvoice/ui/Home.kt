@@ -278,6 +278,25 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
         StorageLine(context)
 
+        // ---- language ------------------------------------------------------
+        SectionLabel("Language")
+        Panel {
+            Column(Modifier.padding(18.dp)) {
+                EvText("Dictation language", type.body)
+                Spacer(Modifier.height(4.dp))
+                EvText("Auto detects speech language and handles mixed speech / surzhyk.", type.sub)
+                Spacer(Modifier.height(12.dp))
+                EvSegmented(
+                    options = listOf(
+                        Prefs.LANG_AUTO to "Auto",
+                        Prefs.LANG_UK to "Українська",
+                        Prefs.LANG_EN to "English",
+                    ),
+                    selectedId = settings.language,
+                ) { prefs.setLanguage(it) }
+            }
+        }
+
         // ---- placement -----------------------------------------------------
         SectionLabel("Where the pill appears")
         Panel(padding = PaddingValues(bottom = 4.dp)) {

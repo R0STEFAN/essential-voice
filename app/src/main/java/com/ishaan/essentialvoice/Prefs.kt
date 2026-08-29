@@ -25,6 +25,7 @@ data class Settings(
     val pillY: Float,
     val slideFrom: String,
     val qualityTier: String,
+    val language: String,
     val idleUnloadSeconds: Int,
     val typeIntoField: Boolean,
     val copyToClipboard: Boolean,
@@ -60,6 +61,7 @@ class Prefs private constructor(context: Context) {
         slideFrom = sp.getString(K_SLIDE_FROM, "auto") ?: "auto",
         qualityTier = sp.getString(K_TIER, ModelCatalog.DEFAULT_TIER_ID)
             ?: ModelCatalog.DEFAULT_TIER_ID,
+        language = sp.getString(K_LANGUAGE, LANG_AUTO) ?: LANG_AUTO,
         idleUnloadSeconds = sp.getInt(K_IDLE_UNLOAD, 300),
         typeIntoField = sp.getBoolean(K_TYPE, true),
         copyToClipboard = sp.getBoolean(K_CLIPBOARD, false),
@@ -83,6 +85,7 @@ class Prefs private constructor(context: Context) {
         sp.edit().putFloat(K_PILL_X, x).putFloat(K_PILL_Y, y).apply()
     fun setSlideFrom(v: String) = sp.edit().putString(K_SLIDE_FROM, v).apply()
     fun setQualityTier(v: String) = sp.edit().putString(K_TIER, v).apply()
+    fun setLanguage(v: String) = sp.edit().putString(K_LANGUAGE, v).apply()
     fun setIdleUnloadSeconds(v: Int) = sp.edit().putInt(K_IDLE_UNLOAD, v).apply()
     fun setTypeIntoField(v: Boolean) = sp.edit().putBoolean(K_TYPE, v).apply()
     fun setCopyToClipboard(v: Boolean) = sp.edit().putBoolean(K_CLIPBOARD, v).apply()
@@ -134,6 +137,11 @@ class Prefs private constructor(context: Context) {
         const val MODE_HOLD = "hold"
         const val MODE_TAP = "tap"
 
+        const val LANG_AUTO = "auto"
+        const val LANG_UK = "uk"
+        const val LANG_EN = "en"
+
+        private const val K_LANGUAGE = "dictation_language"
         private const val K_KEYCODE = "trigger_keycode"
         private const val K_SCANCODE = "trigger_scancode"
         private const val K_TRIGGER_MODE = "trigger_mode"
