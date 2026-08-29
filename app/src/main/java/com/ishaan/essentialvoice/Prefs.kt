@@ -61,7 +61,7 @@ class Prefs private constructor(context: Context) {
         slideFrom = sp.getString(K_SLIDE_FROM, "auto") ?: "auto",
         qualityTier = sp.getString(K_TIER, ModelCatalog.DEFAULT_TIER_ID)
             ?: ModelCatalog.DEFAULT_TIER_ID,
-        language = sp.getString(K_LANGUAGE, LANG_AUTO) ?: LANG_AUTO,
+        language = sp.getString(K_LANGUAGE, LANG_UK) ?: LANG_UK,
         idleUnloadSeconds = sp.getInt(K_IDLE_UNLOAD, 300),
         typeIntoField = sp.getBoolean(K_TYPE, true),
         copyToClipboard = sp.getBoolean(K_CLIPBOARD, false),

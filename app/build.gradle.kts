@@ -23,8 +23,8 @@ android {
         applicationId = "com.ishaan.essentialvoice"
         minSdk = 31
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "2.0"
 
         // Where the app looks for news of a newer build. See Updater.kt.
         buildConfigField(
@@ -81,7 +81,7 @@ android {
 
             // So the version shown in the app says which build this is. There is
             // no other visible difference between a test build and a release.
-            versionNameSuffix = "-test"
+            versionNameSuffix = ""
         }
     }
 
