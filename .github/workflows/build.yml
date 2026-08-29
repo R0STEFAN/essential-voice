@@ -25,7 +25,9 @@ jobs:
 
       - name: Install NDK and CMake
         run: |
-          echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.2.12479018" "cmake;3.22.1" || true
+          echo "y" | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.2.12479018" "cmake;3.22.1" || true
+          mkdir -p ~/.android ~/.config
+          sudo chown -R $USER:$USER /home/runner
 
       - name: Clone whisper.cpp
         run: |
