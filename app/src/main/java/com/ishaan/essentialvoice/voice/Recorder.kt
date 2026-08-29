@@ -67,20 +67,24 @@ class Recorder(private val onLevel: (Float) -> Unit) {
 
         worker = thread(name = "ev-mic", priority = Thread.MAX_PRIORITY) {
             val chunk = ShortArray(minBuf)
+            val subFrame = 256 // ~16ms at 16kHz for smooth real-time equalizer frames
             while (running) {
                 val n = r.read(chunk, 0, chunk.size)
                 if (n <= 0) continue
 
-                var peak = 0f
                 var i = 0
                 while (i < n && written < buffer.size) {
-                    val v = chunk[i] / 32768f
-                    buffer[written++] = v
-                    val m = abs(v)
-                    if (m > peak) peak = m
-                    i++
+                    var subPeak = 0f
+                    val end = kotlin.math.min(n, i + subFrame)
+                    while (i < end && written < buffer.size) {
+                        val v = chunk[i] / 32768f
+                        buffer[written++] = v
+                        val m = abs(v)
+                        if (m > subPeak) subPeak = m
+                        i++
+                    }
+                    onLevel(subPeak)
                 }
-                onLevel(peak)
                 if (written >= buffer.size) {
                     Log.w(TAG, "hit the ${MAX_SECONDS}s ceiling, stopping")
                     running = false

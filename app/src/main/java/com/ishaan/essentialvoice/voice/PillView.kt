@@ -107,9 +107,10 @@ class PillView(context: Context) : View(context) {
 
     /** Called from the mic thread on every buffer. */
     fun pushLevel(peak: Float) {
-        // Speech peaks well below full scale; map the useful range onto 0..1
-        // rather than drawing five permanently identical dots.
-        val shaped = min(1f, peak / 0.35f)
+        // Boost sensitivity so normal conversational speech (peaks ~0.02 - 0.08)
+        // cleanly expands the dots into lively equalizer bars.
+        val normalized = (peak / 0.07f).coerceIn(0f, 1f)
+        val shaped = kotlin.math.sqrt(normalized)
         post {
             System.arraycopy(levels, 1, levels, 0, DOTS - 1)
             levels[DOTS - 1] = shaped
