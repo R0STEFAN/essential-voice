@@ -205,10 +205,7 @@ object Dictation {
             if (typed) {
                 landed = true
             } else if (!s.copyToClipboard) {
-                // There was nowhere to type and no copy was asked for; putting it
-                // on the clipboard anyway beats dropping what was just dictated.
-                copy(ctx, text)
-                toast("No text field was focused, so it is on the clipboard")
+                toast("No text field was focused")
                 landed = true
             }
         }

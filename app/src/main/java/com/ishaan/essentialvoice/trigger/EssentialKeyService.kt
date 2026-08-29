@@ -190,16 +190,22 @@ class EssentialKeyService : AccessibilityService() {
         return try {
             if (!focus.isEditable) return false
 
-            // Pasting keeps the caret where it was and works inside editors that
-            // manage their own text, so the clipboard is briefly borrowed even
-            // when the user did not ask for a copy. Whatever happens below, it
-            // has to be given back — see [releaseClipboard].
-            val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val shouldCopy = Prefs.get(this).now.copyToClipboard
+            if (!shouldCopy) {
+                // Direct insertion: does not touch or borrow the clipboard at all
+                val existing = focus.text?.toString() ?: ""
+                val joined = if (existing.isEmpty()) text else "$existing $text"
+                val args = android.os.Bundle().apply {
+                    putCharSequence(
+                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, joined,
+                    )
+                }
+                if (focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+                    return true
+                }
+            }
 
-            // Almost always null, and that is not a bug to fix. Since Android 10
-            // the clipboard can only be *read* by whatever has focus, and an
-            // accessibility service never does, so this is a best effort at
-            // putting things back exactly and not something to depend on.
+            val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val previous = runCatching { clip.primaryClip }.getOrNull()
 
             clip.setPrimaryClip(dictatedClip(text))
@@ -209,9 +215,7 @@ class EssentialKeyService : AccessibilityService() {
                 return true
             }
 
-            // Fall back to appending, preserving whatever was already typed. The
-            // clipboard was not needed for this route, but it was already taken
-            // by the attempt above, so it still has to be handed back.
+            // Fall back to appending
             val existing = focus.text?.toString() ?: ""
             val joined = if (existing.isEmpty()) text else "$existing $text"
             val args = android.os.Bundle().apply {
@@ -239,6 +243,7 @@ class EssentialKeyService : AccessibilityService() {
         ClipData.newPlainText("Essential Voice", text).apply {
             description.extras = PersistableBundle().apply {
                 putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                putBoolean("android.content.extra.IS_SENSITIVE", true)
             }
         }
 
