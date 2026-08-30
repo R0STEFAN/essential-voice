@@ -117,7 +117,7 @@ object Dictation {
         // Loading costs a couple of hundred milliseconds; overlap it with the
         // sentence rather than making the user wait for it after they stop.
         work = scope.launch { withContext(Dispatchers.Default) { EngineManager.activeEngine(ctx).warm(ctx, prefs.now.tier) } }
-
+    }
 
     fun end(heldMs: Long = Long.MAX_VALUE) {
         val ctx = app ?: return
