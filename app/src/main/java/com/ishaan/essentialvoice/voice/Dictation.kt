@@ -17,9 +17,8 @@ import android.view.Gravity
 import android.view.WindowManager
 import android.view.animation.Interpolator
 import android.view.animation.PathInterpolator
-import android.widget.Toast
 import com.ishaan.essentialvoice.Prefs
-import com.ishaan.essentialvoice.whisper.WhisperEngine
+import com.ishaan.essentialvoice.engine.EngineManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,7 +71,7 @@ object Dictation {
         app = c
         wm = c.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         prefs = Prefs.get(c)
-        Log.i(TAG, "ready — ${WhisperEngine.systemInfo()}")
+        Log.i(TAG, "ready — ${EngineManager.activeEngine(c).systemInfo()}")
     }
 
     fun detach() {
@@ -117,8 +116,7 @@ object Dictation {
 
         // Loading costs a couple of hundred milliseconds; overlap it with the
         // sentence rather than making the user wait for it after they stop.
-        work = scope.launch { withContext(Dispatchers.Default) { WhisperEngine.warm(ctx) } }
-    }
+        work = scope.launch { withContext(Dispatchers.Default) { EngineManager.activeEngine(ctx).warm(ctx, prefs.now.tier) } }
 
 
     fun end(heldMs: Long = Long.MAX_VALUE) {
@@ -155,10 +153,9 @@ object Dictation {
                 Audio.padTo(audio, 0.6f)
             }
 
-            WhisperEngine.transcribe(ctx, prepared).fold(
+            EngineManager.activeEngine(ctx).transcribe(ctx, prepared).fold(
                 onSuccess = { text ->
                     val ms = System.currentTimeMillis() - started
-                    Log.i(TAG, "transcribed ${"%.1f".format(seconds)}s in ${ms}ms: \"$text\"")
                     when {
                         text.isBlank() -> finish(PillView.State.ERROR, null)
                         deliver(ctx, text) -> finish(PillView.State.DONE, null)
@@ -180,8 +177,7 @@ object Dictation {
 
     fun cancel() {
         if (!busy) return
-        WhisperEngine.abort()
-        work?.cancel()
+        app?.let { EngineManager.activeEngine(it).abort() }
         if (capturing) { recorder?.stop(); capturing = false }
         finish(PillView.State.ERROR, null)
     }
@@ -375,12 +371,11 @@ object Dictation {
         if (window <= 0) return
         idleJob = scope.launch {
             delay(window * 1000L + 2_000L)
-            if (!busy) WhisperEngine.unloadIfIdle(ctx)
+            if (!busy) EngineManager.activeEngine(ctx).unloadIfIdle(ctx)
         }
     }
-
     /** The chosen tier changed; drop whatever is resident. */
     fun onTierChanged() {
-        scope.launch { WhisperEngine.unload() }
+        scope.launch { app?.let { EngineManager.activeEngine(it).unload() } }
     }
 }
