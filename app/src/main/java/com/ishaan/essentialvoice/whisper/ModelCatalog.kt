@@ -22,6 +22,7 @@ data class QualityTier(
     val millisPer10s: Int = 3000,
     val downloadUrl: String? = null,
     val isCustom: Boolean = false,
+    val subFiles: List<Pair<String, Long>> = emptyList(),
 ) {
     val sizeMb: Int get() = if (bytes > 0) ((bytes + 500_000) / 1_000_000).toInt() else 0
 
@@ -35,6 +36,14 @@ data class QualityTier(
     fun file(context: Context): File = File(ModelCatalog.dir(context), fileName)
 
     fun isInstalled(context: Context): Boolean {
+        if (subFiles.isNotEmpty()) {
+            val tierDir = File(ModelCatalog.dir(context), id)
+            val filesOk = subFiles.all { (name, expectedBytes) ->
+                val f = File(tierDir, name)
+                f.isFile && (expectedBytes <= 0 || f.length() == expectedBytes)
+            }
+            if (filesOk) return true
+        }
         val f = file(context)
         if (engine == EngineType.PARAKEET) {
             val tierDir = File(ModelCatalog.dir(context), id)
@@ -116,18 +125,25 @@ object ModelCatalog {
             bestOf = 5,
             millisPer10s = 8_200,
         ),
+
         // ---- Parakeet Engine Models ----
         QualityTier(
             id = "parakeet_tdt_v3",
             label = "Parakeet TDT 0.6B v3",
             sub = "NVIDIA FastConformer-TDT (INT8). Super fast on mobile, 25 European languages.",
-            fileName = "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
-            bytes = 487_170_055L,
+            fileName = "encoder.int8.onnx",
+            bytes = 670_809_594L,
             engine = EngineType.PARAKEET,
             beamSize = 1,
             bestOf = 1,
             millisPer10s = 1_000,
-            downloadUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+            downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/",
+            subFiles = listOf(
+                "encoder.int8.onnx" to 652_184_281L,
+                "decoder.int8.onnx" to 11_845_275L,
+                "joiner.int8.onnx" to 6_355_277L,
+                "tokens.txt" to 424_761L,
+            ),
         ),
     )
 

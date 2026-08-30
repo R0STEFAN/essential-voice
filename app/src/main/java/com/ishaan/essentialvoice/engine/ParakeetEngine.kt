@@ -79,22 +79,22 @@ object ParakeetEngine : SttEngine {
 
             val t0 = System.currentTimeMillis()
 
-            val modelConfig = OfflineModelConfig().apply {
-                transducer = OfflineTransducerModelConfig().apply {
-                    this.encoder = encoder.absolutePath
-                    this.decoder = decoder?.absolutePath ?: ""
-                    this.joiner = joiner?.absolutePath ?: ""
-                }
-                this.tokens = tokens?.absolutePath ?: ""
-                this.numThreads = defaultThreads()
-                this.provider = "cpu"
-                this.modelType = "nemo_transducer"
-            }
+            val modelConfig = OfflineModelConfig(
+                transducer = OfflineTransducerModelConfig(
+                    encoder = encoder.absolutePath,
+                    decoder = decoder?.absolutePath ?: "",
+                    joiner = joiner?.absolutePath ?: "",
+                ),
+                tokens = tokens?.absolutePath ?: "",
+                numThreads = defaultThreads(),
+                provider = "cpu",
+                modelType = "nemo_transducer",
+            )
 
-            val config = OfflineRecognizerConfig().apply {
-                this.modelConfig = modelConfig
-                this.decodingMethod = "greedy_search"
-            }
+            val config = OfflineRecognizerConfig(
+                modelConfig = modelConfig,
+                decodingMethod = "greedy_search",
+            )
 
             val next = runCatching {
                 OfflineRecognizer(assetManager = null, config = config)

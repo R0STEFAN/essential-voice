@@ -11,9 +11,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Resumable model download. A half-megabyte tier is one thing; "Maximum" is
- * 574MB, so a dropped connection must not mean starting over — the partial file
- * is kept as .part and continued with a Range request.
+ * Resumable model download. Supports single file models and multi-file Parakeet models.
  */
 object ModelDownloader {
 
@@ -35,15 +33,91 @@ object ModelDownloader {
     /** Returns true when the model file ends up complete and the right size. */
     suspend fun download(context: Context, tier: QualityTier): Boolean = withContext(Dispatchers.IO) {
         cancelRequested = false
-        val target = tier.file(context)
         if (tier.isInstalled(context)) {
             _state.value = State.Idle
             return@withContext true
         }
+
+        // Multi-file download (e.g. Parakeet TDT ONNX models)
+        if (tier.subFiles.isNotEmpty()) {
+            val tierDir = File(ModelCatalog.dir(context), tier.id).apply { if (!exists()) mkdirs() }
+            val totalBytes = if (tier.bytes > 0) tier.bytes else tier.subFiles.sumOf { it.second }
+            var totalDone = 0L
+
+            for ((fileName, fileBytes) in tier.subFiles) {
+                if (cancelRequested) { _state.value = State.Idle; return@withContext false }
+                val target = File(tierDir, fileName)
+                if (target.isFile && (fileBytes <= 0 || target.length() == fileBytes)) {
+                    totalDone += target.length()
+                    continue
+                }
+
+                val fileUrl = "${tier.url}$fileName"
+                val part = File(tierDir, "$fileName.part")
+                var fileDone = if (part.isFile) part.length() else 0L
+
+                var conn: HttpURLConnection? = null
+                try {
+                    conn = (URL(fileUrl).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 20_000
+                        readTimeout = 30_000
+                        instanceFollowRedirects = true
+                        if (fileDone > 0) setRequestProperty("Range", "bytes=$fileDone-")
+                    }
+                    val code = conn.responseCode
+                    if (fileDone > 0 && code == HttpURLConnection.HTTP_OK) {
+                        part.delete()
+                        fileDone = 0L
+                    } else if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
+                        _state.value = State.Failed(tier.id, "Server returned $code for $fileName")
+                        return@withContext false
+                    }
+
+                    RandomAccessFile(part, "rw").use { out ->
+                        out.seek(fileDone)
+                        conn.inputStream.use { input ->
+                            val buf = ByteArray(256 * 1024)
+                            var lastPublish = 0L
+                            while (true) {
+                                if (cancelRequested) {
+                                    _state.value = State.Idle
+                                    return@withContext false
+                                }
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                                fileDone += n
+                                if (fileDone - lastPublish > 400_000) {
+                                    lastPublish = fileDone
+                                    _state.value = State.Running(tier.id, totalDone + fileDone, totalBytes)
+                                }
+                            }
+                        }
+                    }
+
+                    if (target.exists()) target.delete()
+                    if (!part.renameTo(target)) {
+                        _state.value = State.Failed(tier.id, "Could not move $fileName into place")
+                        return@withContext false
+                    }
+                    totalDone += target.length()
+                } catch (t: Throwable) {
+                    _state.value = State.Failed(tier.id, t.message ?: t.javaClass.simpleName)
+                    return@withContext false
+                } finally {
+                    conn?.disconnect()
+                }
+            }
+
+            _state.value = State.Idle
+            return@withContext true
+        }
+
+        // Single-file download (e.g. Whisper GGML models)
+        val target = tier.file(context)
         val part = File(target.parentFile, tier.fileName + ".part")
         var done = if (part.isFile) part.length() else 0L
         var total = tier.bytes
-        // A .part bigger than the finished file means a stale or corrupt attempt.
         if (total > 0 && done > total) { part.delete(); done = 0L }
 
         _state.value = State.Running(tier.id, done, total)
@@ -57,7 +131,6 @@ object ModelDownloader {
             }
             val code = conn.responseCode
 
-            // 200 on a resume attempt means the server ignored Range: start over.
             if (done > 0 && code == HttpURLConnection.HTTP_OK) {
                 part.delete()
                 done = 0L
@@ -70,6 +143,7 @@ object ModelDownloader {
             if (cl > 0) {
                 total = if (done > 0) done + cl else cl
             }
+
             RandomAccessFile(part, "rw").use { out ->
                 out.seek(done)
                 conn.inputStream.use { input ->
@@ -84,7 +158,6 @@ object ModelDownloader {
                         if (n < 0) break
                         out.write(buf, 0, n)
                         done += n
-                        // Publishing every chunk would spam the UI thread; 400KB is plenty.
                         if (done - lastPublish > 400_000) {
                             lastPublish = done
                             _state.value = State.Running(tier.id, done, total)
