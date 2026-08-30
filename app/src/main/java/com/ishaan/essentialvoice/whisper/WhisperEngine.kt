@@ -3,6 +3,8 @@ package com.ishaan.essentialvoice.whisper
 import android.content.Context
 import android.util.Log
 import com.ishaan.essentialvoice.Prefs
+import com.ishaan.essentialvoice.engine.EngineType
+import com.ishaan.essentialvoice.engine.SttEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,9 +17,10 @@ import kotlinx.coroutines.withContext
  * *hold* rather than on release — the load overlaps the sentence being spoken and
  * is never felt — and dropped again after a spell of not being used.
  */
-object WhisperEngine {
+object WhisperEngine : SttEngine {
 
     private const val TAG = "EVEngine"
+    override val type: EngineType = EngineType.WHISPER
 
     private val lock = Mutex()
 
@@ -25,13 +28,13 @@ object WhisperEngine {
     @Volatile private var loadedTier: String? = null
     @Volatile private var lastUsedAt: Long = 0L
 
-    val isLoaded: Boolean get() = ptr != 0L
-    val loadedTierId: String? get() = loadedTier
+    override val isLoaded: Boolean get() = ptr != 0L
+    override val loadedTierId: String? get() = loadedTier
 
     /** False on a CPU too old for the instructions this build was compiled with. */
-    val isSupported: Boolean get() = WhisperLib.isSupported
+    override val isSupported: Boolean get() = WhisperLib.isSupported
 
-    fun systemInfo(): String =
+    override fun systemInfo(): String =
         if (!WhisperLib.ensureLoaded()) "unsupported CPU"
         else runCatching { WhisperLib.nativeSystemInfo() }.getOrElse { "unavailable" }
 
@@ -42,29 +45,29 @@ object WhisperEngine {
      * Load the configured tier if it is not already resident. Safe to call from
      * anywhere; concurrent callers queue on the same load.
      */
-    suspend fun warm(context: Context): Boolean = withContext(Dispatchers.Default) {
-        val tier = Prefs.get(context).now.tier
-        if (!WhisperLib.ensureLoaded()) {
-            Log.e(TAG, "native library unavailable on this CPU")
-            return@withContext false
-        }
+    suspend fun warm(context: Context): Boolean =
+        warm(context, Prefs.get(context).now.tier)
+
+    override suspend fun warm(context: Context, tier: QualityTier): Boolean = withContext(Dispatchers.Default) {
+        if (!WhisperLib.ensureLoaded()) return@withContext false
+        val f = tier.file(context)
+        if (!f.isFile) return@withContext false
+
         lock.withLock {
             if (ptr != 0L && loadedTier == tier.id) {
                 lastUsedAt = System.currentTimeMillis()
                 return@withLock true
             }
-            unloadLocked()
-            if (!tier.isInstalled(context)) {
-                Log.w(TAG, "tier ${tier.id} not downloaded")
-                return@withLock false
-            }
+
             val t0 = System.currentTimeMillis()
-            val p = WhisperLib.nativeInit(tier.file(context).absolutePath, false)
-            if (p == 0L) {
-                Log.e(TAG, "nativeInit returned null for ${tier.fileName}")
+            val next = WhisperLib.nativeInit(f.absolutePath, false)
+            if (next == 0L) {
+                Log.w(TAG, "failed to load ${tier.fileName}")
                 return@withLock false
             }
-            ptr = p
+
+            unloadLocked()
+            ptr = next
             loadedTier = tier.id
             lastUsedAt = System.currentTimeMillis()
             Log.i(TAG, "loaded ${tier.fileName} in ${System.currentTimeMillis() - t0}ms")
@@ -73,11 +76,11 @@ object WhisperEngine {
     }
 
     /** Blocking transcription. [audio] must be 16kHz mono float in -1..1. */
-    suspend fun transcribe(context: Context, audio: FloatArray): Result<String> =
+    override suspend fun transcribe(context: Context, audio: FloatArray): Result<String> =
         withContext(Dispatchers.Default) {
             val tier = Prefs.get(context).now.tier
 
-            if (!warm(context)) {
+            if (!warm(context, tier)) {
                 return@withContext Result.failure(
                     IllegalStateException("The ${tier.label} model is not downloaded yet")
                 )
@@ -107,29 +110,28 @@ object WhisperEngine {
             }
         }
 
-    fun abort() = runCatching { WhisperLib.nativeAbort(true) }
+    override fun abort() { runCatching { WhisperLib.nativeAbort(true) } }
 
     /** Drop the model if it has gone unused for longer than the configured window. */
-    suspend fun unloadIfIdle(context: Context) {
+    override suspend fun unloadIfIdle(context: Context) {
         val window = Prefs.get(context).now.idleUnloadSeconds
         if (window <= 0) return
         lock.withLock {
             if (ptr == 0L) return@withLock
             if (System.currentTimeMillis() - lastUsedAt < window * 1000L) return@withLock
-            Log.i(TAG, "unloading idle model")
+            Log.i(TAG, "unloading idle whisper model")
             unloadLocked()
         }
     }
 
-    suspend fun unload() = lock.withLock { unloadLocked() }
+    override suspend fun unload() = lock.withLock { unloadLocked() }
 
     private fun unloadLocked() {
         if (ptr != 0L) {
             WhisperLib.nativeFree(ptr)
             ptr = 0L
             loadedTier = null
-            // Freeing without this leaves the arenas charged to our RSS.
-            runCatching { WhisperLib.nativeTrimHeap() }
+            WhisperLib.nativeTrimHeap()
         }
     }
 }
