@@ -39,6 +39,17 @@ object ParakeetEngine : SttEngine {
     override suspend fun warm(context: Context, tier: QualityTier): Boolean = withContext(Dispatchers.Default) {
         val baseDir = ModelCatalog.dir(context)
         val tierDir = File(baseDir, tier.id)
+
+        // Auto-extract archive if present on disk
+        val archiveFile = File(baseDir, tier.fileName)
+        val hasExtracted = File(tierDir, "encoder.int8.onnx").exists() || File(tierDir, "encoder.onnx").exists()
+        if (!hasExtracted && archiveFile.exists()) {
+            val name = archiveFile.name.lowercase()
+            if (name.endsWith(".tar.bz2") || name.endsWith(".zip") || name.endsWith(".tar.gz") || name.endsWith(".tgz")) {
+                com.ishaan.essentialvoice.whisper.ModelDownloader.extractArchive(archiveFile, tierDir)
+            }
+        }
+
         val searchDirs = listOf(tierDir, baseDir)
 
         val encoder = searchDirs.map { File(it, "encoder.int8.onnx") }.firstOrNull { it.exists() }
@@ -46,7 +57,6 @@ object ParakeetEngine : SttEngine {
             ?: searchDirs.map { File(it, tier.fileName) }.firstOrNull { it.exists() && it.name.endsWith(".onnx") }
             ?: searchDirs.map { File(it, "model.int8.onnx") }.firstOrNull { it.exists() }
             ?: searchDirs.map { File(it, "model.onnx") }.firstOrNull { it.exists() }
-
         val decoder = searchDirs.map { File(it, "decoder.int8.onnx") }.firstOrNull { it.exists() }
             ?: searchDirs.map { File(it, "decoder.onnx") }.firstOrNull { it.exists() }
 

@@ -109,11 +109,10 @@ object ModelDownloader {
                 return@withContext false
             }
 
-            if (target.name.endsWith(".zip")) {
-                runCatching {
-                    val outDir = File(ModelCatalog.dir(context), tier.id)
-                    unzip(target, outDir)
-                }
+            val name = target.name.lowercase()
+            if (name.endsWith(".tar.bz2") || name.endsWith(".zip") || name.endsWith(".tar.gz") || name.endsWith(".tgz")) {
+                val outDir = File(ModelCatalog.dir(context), tier.id)
+                extractArchive(target, outDir)
             }
 
             _state.value = State.Idle
@@ -133,18 +132,50 @@ object ModelDownloader {
         if (tierDir.isDirectory) tierDir.deleteRecursively()
     }
 
-    private fun unzip(zipFile: File, targetDir: File) {
+    fun extractArchive(archiveFile: File, targetDir: File) {
         if (!targetDir.exists()) targetDir.mkdirs()
-        java.util.zip.ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val file = File(targetDir, entry.name.substringAfterLast('/'))
-                if (!entry.isDirectory && file.name.isNotBlank()) {
-                    file.outputStream().buffered().use { out -> zis.copyTo(out) }
+        val name = archiveFile.name.lowercase()
+
+        if (name.endsWith(".tar.bz2") || name.endsWith(".tbz2") || name.endsWith(".tar.gz") || name.endsWith(".tgz") || name.endsWith(".tar")) {
+            runCatching {
+                var rawIn: java.io.InputStream = archiveFile.inputStream().buffered()
+                if (name.endsWith(".tar.bz2") || name.endsWith(".tbz2")) {
+                    rawIn = org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(rawIn)
+                } else if (name.endsWith(".tar.gz") || name.endsWith(".tgz")) {
+                    rawIn = java.util.zip.GZIPInputStream(rawIn)
                 }
-                zis.closeEntry()
-                entry = zis.nextEntry
-            }
+
+                org.apache.commons.compress.archivers.tar.TarArchiveInputStream(rawIn).use { tarIn ->
+                    var entry = tarIn.nextTarEntry
+                    while (entry != null) {
+                        val fileName = entry.name.substringAfterLast('/')
+                        if (!entry.isDirectory && fileName.isNotBlank()) {
+                            val destFile = File(targetDir, fileName)
+                            destFile.outputStream().buffered().use { out ->
+                                tarIn.copyTo(out)
+                            }
+                        }
+                        entry = tarIn.nextTarEntry
+                    }
+                }
+            }.onFailure { android.util.Log.w("EVDownloader", "failed to extract tar archive", it) }
+        } else if (name.endsWith(".zip")) {
+            runCatching {
+                java.util.zip.ZipInputStream(archiveFile.inputStream().buffered()).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        val fileName = entry.name.substringAfterLast('/')
+                        if (!entry.isDirectory && fileName.isNotBlank()) {
+                            val destFile = File(targetDir, fileName)
+                            destFile.outputStream().buffered().use { out ->
+                                zis.copyTo(out)
+                            }
+                        }
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                    }
+                }
+            }.onFailure { android.util.Log.w("EVDownloader", "failed to extract zip archive", it) }
         }
     }
 }
