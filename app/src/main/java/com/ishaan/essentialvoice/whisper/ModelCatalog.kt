@@ -1,22 +1,12 @@
 package com.ishaan.essentialvoice.whisper
 
 import android.content.Context
+import com.ishaan.essentialvoice.engine.EngineType
 import java.io.File
 
 /**
- * The quality toggle, expressed as four settings that were measured on this
+ * The quality toggle, expressed as settings that were measured on this
  * phone rather than guessed.
- *
- * [millisPer10s] is the wall time whisper.cpp took on a CMF Phone 2 Pro for an
- * eleven-second clip of clear speech at four threads — the number the tier card
- * shows, so a tier's cost in waiting is as visible as its cost in bytes.
- *
- * Anything larger than `small` was tried and rejected on this hardware:
- * `medium.en-q5_0` spends 19.6s in the encoder alone and `large-v3-turbo-q5_0`
- * spends 32.6s, both fixed costs that no thread count or beam setting moves.
- * Neither is a dictation tool. Quantised `small.en-q5_1` was also slower than
- * fp16 here (7.1s against 5.8s): the Dimensity does fp16 natively, so
- * dequantising costs time and buys nothing but disk.
  */
 data class QualityTier(
     val id: String,
@@ -24,6 +14,7 @@ data class QualityTier(
     val sub: String,
     val fileName: String,
     val bytes: Long,
+    val engine: EngineType = EngineType.WHISPER,
     /** >1 selects beam search; 1 means greedy sampling. */
     val beamSize: Int = 1,
     /** Candidates the sampler keeps. */
@@ -54,15 +45,17 @@ data class QualityTier(
 object ModelCatalog {
 
     const val BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
-    const val DEFAULT_TIER_ID = "balanced"
+    const val DEFAULT_TIER_ID = "futo_244"
 
     val tiers = listOf(
+        // ---- Whisper Engine Models ----
         QualityTier(
             id = "futo_244",
             label = "FUTO 244",
             sub = "FUTO Multilingual-244 (ACFT fine-tuned). Best for Ukrainian & voice dictation.",
             fileName = "voice-input-multilingual-244.bin",
             bytes = 264_464_624L,
+            engine = EngineType.WHISPER,
             beamSize = 1,
             bestOf = 2,
             millisPer10s = 3_500,
@@ -74,6 +67,7 @@ object ModelCatalog {
             sub = "Multilingual Base. Everyday balance of speed and accuracy.",
             fileName = "ggml-base.bin",
             bytes = 147_951_465L,
+            engine = EngineType.WHISPER,
             beamSize = 1,
             bestOf = 2,
             millisPer10s = 2_400,
@@ -84,6 +78,7 @@ object ModelCatalog {
             sub = "Multilingual Small. High precision for Ukrainian and surzhyk.",
             fileName = "ggml-small.bin",
             bytes = 487_601_967L,
+            engine = EngineType.WHISPER,
             beamSize = 1,
             bestOf = 2,
             millisPer10s = 6_000,
@@ -94,6 +89,7 @@ object ModelCatalog {
             sub = "Multilingual Tiny. Fast short commands; may miss context.",
             fileName = "ggml-tiny.bin",
             bytes = 77_691_713L,
+            engine = EngineType.WHISPER,
             beamSize = 1,
             bestOf = 2,
             millisPer10s = 1_500,
@@ -104,22 +100,49 @@ object ModelCatalog {
             sub = "The Accurate Small model, searched harder with beam search.",
             fileName = "ggml-small.bin",
             bytes = 487_601_967L,
+            engine = EngineType.WHISPER,
             beamSize = 5,
             bestOf = 5,
             millisPer10s = 8_200,
         ),
+
+        // ---- Parakeet Engine Models ----
+        QualityTier(
+            id = "parakeet_tdt_v3",
+            label = "Parakeet TDT 0.6B v3",
+            sub = "NVIDIA FastConformer-TDT (INT8). Super fast on mobile, 25 European languages.",
+            fileName = "parakeet-tdt-0.6b-v3-int8.onnx",
+            bytes = 310_000_000L,
+            engine = EngineType.PARAKEET,
+            beamSize = 1,
+            bestOf = 1,
+            millisPer10s = 1_000,
+            downloadUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+        ),
     )
+
+    fun detectEngine(fileName: String): EngineType {
+        val lower = fileName.lowercase()
+        return when {
+            lower.endsWith(".onnx") || lower.endsWith(".tar.bz2") || lower.endsWith(".zip") -> EngineType.PARAKEET
+            else -> EngineType.WHISPER
+        }
+    }
 
     fun customTiers(context: Context): List<QualityTier> {
         val dir = dir(context)
         val standardFiles = tiers.map { it.fileName }.toSet()
         val files = dir.listFiles { f ->
-            f.isFile && f.name.endsWith(".bin") && !f.name.endsWith(".part") && f.name !in standardFiles
+            f.isFile && (f.name.endsWith(".bin") || f.name.endsWith(".gguf") || f.name.endsWith(".onnx"))
+                && !f.name.endsWith(".part") && f.name !in standardFiles
         } ?: return emptyList()
+
         return files.map { file ->
+            val detected = detectEngine(file.name)
             val raw = file.nameWithoutExtension
                 .removePrefix("ggml-")
                 .removePrefix("voice-input-")
+                .removePrefix("sherpa-onnx-")
                 .replace("-", " ")
                 .replace("_", " ")
             val label = raw.split(" ")
@@ -128,18 +151,22 @@ object ModelCatalog {
             QualityTier(
                 id = "custom_${file.name}",
                 label = label.ifBlank { file.name },
-                sub = "Custom model (${file.length() / 1_000_000} MB).",
+                sub = "Custom ${detected.label} model (${file.length() / 1_000_000} MB).",
                 fileName = file.name,
                 bytes = file.length(),
+                engine = detected,
                 beamSize = 1,
                 bestOf = 2,
-                millisPer10s = 4_000,
+                millisPer10s = if (detected == EngineType.PARAKEET) 1500 else 4000,
                 isCustom = true,
             )
         }
     }
 
     fun allTiers(context: Context): List<QualityTier> = tiers + customTiers(context)
+
+    fun tiersForEngine(context: Context, engine: EngineType): List<QualityTier> =
+        allTiers(context).filter { it.engine == engine }
 
     fun byId(context: Context, id: String): QualityTier =
         allTiers(context).firstOrNull { it.id == id } ?: byId(id)
@@ -151,9 +178,10 @@ object ModelCatalog {
             sub = "Custom model",
             fileName = if (id.startsWith("custom_")) id.removePrefix("custom_") else id,
             bytes = 0L,
+            engine = detectEngine(id),
             beamSize = 1,
             bestOf = 2,
-            millisPer10s = 4_000,
+            millisPer10s = 3000,
             isCustom = true,
         )
 
