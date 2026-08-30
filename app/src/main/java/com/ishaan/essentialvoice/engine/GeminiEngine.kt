@@ -181,12 +181,12 @@ object GeminiEngine : SttEngine {
         dos.writeBytes("WAVE")
         dos.writeBytes("fmt ")
         dos.writeInt(Integer.reverseBytes(16)) // Subchunk1Size for PCM
-        dos.writeShort(java.lang.Short.reverseBytes(1)) // AudioFormat 1 = PCM
-        dos.writeShort(java.lang.Short.reverseBytes(1)) // NumChannels = 1
+        dos.writeShort(java.lang.Short.reverseBytes(1.toShort()).toInt()) // AudioFormat 1 = PCM
+        dos.writeShort(java.lang.Short.reverseBytes(1.toShort()).toInt()) // NumChannels = 1
         dos.writeInt(Integer.reverseBytes(sampleRate))
         dos.writeInt(Integer.reverseBytes(byteRate))
-        dos.writeShort(java.lang.Short.reverseBytes(2)) // BlockAlign = 2
-        dos.writeShort(java.lang.Short.reverseBytes(16)) // BitsPerSample = 16
+        dos.writeShort(java.lang.Short.reverseBytes(2.toShort()).toInt()) // BlockAlign = 2
+        dos.writeShort(java.lang.Short.reverseBytes(16.toShort()).toInt()) // BitsPerSample = 16
         dos.writeBytes("data")
         dos.writeInt(Integer.reverseBytes(pcmData.size))
         dos.write(pcmData)
