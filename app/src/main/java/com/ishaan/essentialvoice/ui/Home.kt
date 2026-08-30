@@ -108,7 +108,7 @@ fun HomeScreen(
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 val rawName = queryDocName(context, uri) ?: "custom_${System.currentTimeMillis()}.bin"
-                val safeName = if (rawName.endsWith(".bin")) rawName else "$rawName.bin"
+                val safeName = if (rawName.endsWith(".bin") || rawName.endsWith(".onnx")) rawName else "$rawName.bin"
                 val target = File(ModelCatalog.dir(context), safeName)
                 runCatching {
                     context.contentResolver.openInputStream(uri)?.use { input: java.io.InputStream ->
@@ -116,6 +116,8 @@ fun HomeScreen(
                             input.copyTo(output)
                         }
                     }
+                    val detected = ModelCatalog.detectEngine(safeName)
+                    prefs.setActiveEngine(detected)
                     prefs.setQualityTier("custom_$safeName")
                     Dictation.onTierChanged()
                     modelsRevision++
@@ -271,20 +273,40 @@ fun HomeScreen(
             }
         }
 
+        // ---- speech engine selector ----------------------------------------
+        SectionLabel("Speech Engine")
+        Panel {
+            Column(Modifier.padding(18.dp)) {
+                EvText("Recognition Engine", type.body)
+                Spacer(Modifier.height(4.dp))
+                EvText("Whisper uses Transformer architecture; Parakeet uses FastConformer-TDT.", type.sub)
+                Spacer(Modifier.height(12.dp))
+                EvSegmented(
+                    options = listOf(
+                        com.ishaan.essentialvoice.engine.EngineType.WHISPER.id to "Whisper (GGML)",
+                        com.ishaan.essentialvoice.engine.EngineType.PARAKEET.id to "Parakeet (TDT)",
+                    ),
+                    selectedId = settings.activeEngine.id,
+                ) { id ->
+                    val nextEngine = com.ishaan.essentialvoice.engine.EngineType.fromId(id)
+                    prefs.setActiveEngine(nextEngine)
+                    scope.launch {
+                        com.ishaan.essentialvoice.engine.EngineManager.unloadAllExcept(nextEngine)
+                        Dictation.onTierChanged()
+                    }
+                }
+            }
+        }
+
         // ---- quality -------------------------------------------------------
-        SectionLabel("Recognition quality")
+        SectionLabel("Recognition models")
         EvText(
-            "Bigger models hear more of what you actually said, and cost a one-off " +
-                "download plus a longer wait afterwards. Every timing below was " +
-                "measured on this phone. Everything runs on it too.",
+            "Models available for ${settings.activeEngine.label}. Running locally on this device.",
             type.sub,
             Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp),
         )
-        // Sideways, same as What's new: three cards stacked took most of a
-        // screen to say one thing. IntrinsicSize.Max keeps them level, which a
-        // lazy row could not do.
-        val allTiers = remember(modelsRevision, settings.qualityTier) {
-            ModelCatalog.allTiers(context)
+        val allTiers = remember(modelsRevision, settings.qualityTier, settings.activeEngine) {
+            ModelCatalog.tiersForEngine(context, settings.activeEngine)
         }
         Row(
             Modifier
@@ -326,7 +348,7 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             EvButton(
-                label = "Import .bin file",
+                label = "Import model file",
                 kind = EvButtonKind.Quiet,
                 modifier = Modifier.weight(1f),
             ) {
@@ -406,15 +428,19 @@ fun HomeScreen(
                         val label = nameInput.ifBlank {
                             finalFileName.removeSuffix(".bin").replace('_', ' ')
                         }
+                        val detected = ModelCatalog.detectEngine(finalFileName)
                         val customTier = QualityTier(
                             id = "custom_$finalFileName",
                             label = label,
-                            sub = "Custom downloaded model.",
+                            sub = "Custom downloaded ${detected.label} model.",
                             fileName = finalFileName,
                             bytes = 0L,
+                            engine = detected,
                             downloadUrl = trimmedUrl,
                             isCustom = true,
                         )
+                        prefs.setActiveEngine(detected)
+                        prefs.setQualityTier("custom_$finalFileName")
                         showUrlDialog = false
                         onDownload(customTier)
                         modelsRevision++
