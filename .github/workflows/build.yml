@@ -33,9 +33,10 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git whisper-src
 
-      - name: Clone sherpa-onnx
+      - name: Download sherpa-onnx AAR
         run: |
-          git clone --depth 1 https://github.com/k2-fsa/sherpa-onnx.git sherpa-onnx-src || true
+          mkdir -p app/libs
+          curl -L -o app/libs/sherpa-onnx-1.13.6.aar "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.6/sherpa-onnx-1.13.6.aar"
 
       - name: Build Debug APK
         run: gradle :app:assembleDebug --stacktrace

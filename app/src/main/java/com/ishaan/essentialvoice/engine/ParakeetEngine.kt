@@ -6,6 +6,10 @@ import com.ishaan.essentialvoice.Prefs
 import com.ishaan.essentialvoice.voice.SAMPLE_RATE
 import com.ishaan.essentialvoice.whisper.ModelCatalog
 import com.ishaan.essentialvoice.whisper.QualityTier
+import com.k2fsa.sherpa.onnx.OfflineModelConfig
+import com.k2fsa.sherpa.onnx.OfflineRecognizer
+import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
+import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,27 +23,20 @@ object ParakeetEngine : SttEngine {
 
     private val lock = Mutex()
 
-    @Volatile private var ptr: Long = 0L
+    @Volatile private var recognizer: OfflineRecognizer? = null
     @Volatile private var loadedTier: String? = null
     @Volatile private var lastUsedAt: Long = 0L
 
-    override val isLoaded: Boolean get() = ptr != 0L
+    override val isLoaded: Boolean get() = recognizer != null
     override val loadedTierId: String? get() = loadedTier
-    override val isSupported: Boolean get() = ParakeetLib.isSupported
+    override val isSupported: Boolean = true
 
-    override fun systemInfo(): String =
-        if (!ParakeetLib.ensureLoaded()) "unsupported CPU"
-        else "sherpa-onnx (FastConformer-TDT INT8)"
+    override fun systemInfo(): String = "sherpa-onnx (FastConformer-TDT INT8)"
 
     fun defaultThreads(): Int =
         Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
 
     override suspend fun warm(context: Context, tier: QualityTier): Boolean = withContext(Dispatchers.Default) {
-        if (!ParakeetLib.ensureLoaded()) {
-            Log.w(TAG, "ParakeetLib is not loaded")
-            return@withContext false
-        }
-
         val baseDir = ModelCatalog.dir(context)
         val tierDir = File(baseDir, tier.id)
         val searchDirs = listOf(tierDir, baseDir)
@@ -64,32 +61,39 @@ object ParakeetEngine : SttEngine {
             return@withContext false
         }
 
-        val encoderPath = encoder.absolutePath
-        val decoderPath = decoder?.absolutePath ?: ""
-        val joinerPath = joiner?.absolutePath ?: ""
-        val tokensPath = tokens?.absolutePath ?: ""
-
         lock.withLock {
-            if (ptr != 0L && loadedTier == tier.id) {
+            if (recognizer != null && loadedTier == tier.id) {
                 lastUsedAt = System.currentTimeMillis()
                 return@withLock true
             }
 
             val t0 = System.currentTimeMillis()
-            val next = ParakeetLib.nativeInit(
-                encoderPath,
-                decoderPath,
-                joinerPath,
-                tokensPath,
-                defaultThreads(),
-            )
-            if (next == 0L) {
-                Log.w(TAG, "failed to initialize Parakeet recognizer")
+
+            val modelConfig = OfflineModelConfig().apply {
+                transducer = OfflineTransducerModelConfig().apply {
+                    this.encoder = encoder.absolutePath
+                    this.decoder = decoder?.absolutePath ?: ""
+                    this.joiner = joiner?.absolutePath ?: ""
+                }
+                this.tokens = tokens?.absolutePath ?: ""
+                this.numThreads = defaultThreads()
+                this.provider = "cpu"
+                this.modelType = "nemo_transducer"
+            }
+
+            val config = OfflineRecognizerConfig().apply {
+                this.modelConfig = modelConfig
+                this.decodingMethod = "greedy_search"
+            }
+
+            val next = runCatching { OfflineRecognizer(config = config) }.getOrNull()
+            if (next == null) {
+                Log.w(TAG, "failed to initialize Sherpa-ONNX OfflineRecognizer")
                 return@withLock false
             }
 
             unloadLocked()
-            ptr = next
+            recognizer = next
             loadedTier = tier.id
             lastUsedAt = System.currentTimeMillis()
             Log.i(TAG, "loaded Parakeet tier ${tier.id} in ${System.currentTimeMillis() - t0}ms")
@@ -108,11 +112,15 @@ object ParakeetEngine : SttEngine {
             }
 
             lock.withLock {
-                val p = ptr
-                if (p == 0L) return@withLock Result.failure(IllegalStateException("Parakeet model unloaded"))
+                val rec = recognizer ?: return@withLock Result.failure(IllegalStateException("Parakeet model unloaded"))
 
                 val text = runCatching {
-                    ParakeetLib.nativeTranscribe(p, audio, SAMPLE_RATE)
+                    val stream = rec.createStream()
+                    stream.acceptWaveform(audio, SAMPLE_RATE)
+                    rec.decode(stream)
+                    val resultText = stream.result.text
+                    stream.release()
+                    resultText
                 }.getOrElse { return@withLock Result.failure(it) }
 
                 lastUsedAt = System.currentTimeMillis()
@@ -120,13 +128,13 @@ object ParakeetEngine : SttEngine {
             }
         }
 
-    override fun abort() { runCatching { ParakeetLib.nativeAbort(true) } }
+    override fun abort() { /* Sherpa streams release on demand */ }
 
     override suspend fun unloadIfIdle(context: Context) {
         val window = Prefs.get(context).now.idleUnloadSeconds
         if (window <= 0) return
         lock.withLock {
-            if (ptr == 0L) return@withLock
+            if (recognizer == null) return@withLock
             if (System.currentTimeMillis() - lastUsedAt < window * 1000L) return@withLock
             Log.i(TAG, "unloading idle parakeet model")
             unloadLocked()
@@ -136,10 +144,8 @@ object ParakeetEngine : SttEngine {
     override suspend fun unload() = lock.withLock { unloadLocked() }
 
     private fun unloadLocked() {
-        if (ptr != 0L) {
-            ParakeetLib.nativeFree(ptr)
-            ptr = 0L
-            loadedTier = null
-        }
+        recognizer?.release()
+        recognizer = null
+        loadedTier = null
     }
 }

@@ -20,3 +20,4 @@ publish/
 
 .kotlin/
 .idea/
+app/libs/*.aar
