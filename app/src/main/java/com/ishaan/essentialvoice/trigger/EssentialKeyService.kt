@@ -214,6 +214,27 @@ class EssentialKeyService : AccessibilityService() {
         return null
     }
 
+    private fun isHintOrPlaceholder(focus: AccessibilityNodeInfo): Boolean {
+        if (focus.isShowingHintText) return true
+
+        val text = focus.text?.toString()?.trim() ?: return true
+        if (text.isEmpty()) return true
+
+        val hint = focus.hintText?.toString()?.trim()
+        if (hint != null && text.equals(hint, ignoreCase = true)) return true
+
+        val desc = focus.contentDescription?.toString()?.trim()
+        if (desc != null && text.equals(desc, ignoreCase = true)) return true
+
+        val extraHint = runCatching {
+            focus.extras?.getCharSequence("androidx.view.accessibility.AccessibilityNodeInfoCompat.HINT_TEXT_KEY")
+                ?: focus.extras?.getCharSequence("AccessibilityNodeInfo.hintText")
+        }.getOrNull()?.toString()?.trim()
+        if (extraHint != null && text.equals(extraHint, ignoreCase = true)) return true
+
+        return false
+    }
+
     fun insertText(text: String): Boolean {
         if (text.isBlank()) return false
 
@@ -226,9 +247,7 @@ class EssentialKeyService : AccessibilityService() {
 
             if (!shouldCopy) {
                 // Direct insertion: does NOT touch the clipboard at all, avoiding system paste popups and Gboard banners
-                val isHint = focus.isShowingHintText ||
-                    (focus.hintText != null && focus.text?.toString() == focus.hintText?.toString())
-                val rawText = if (isHint || focus.text == null) "" else focus.text.toString()
+                val rawText = if (isHintOrPlaceholder(focus) || focus.text == null) "" else focus.text.toString()
 
                 val selStart = focus.textSelectionStart
                 val selEnd = focus.textSelectionEnd
