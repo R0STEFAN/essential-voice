@@ -2,11 +2,9 @@ package com.ishaan.essentialvoice.trigger
 
 import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
-import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
-import android.os.PersistableBundle
 import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
@@ -33,13 +31,6 @@ class EssentialKeyService : AccessibilityService() {
 
     companion object {
         private const val TAG = "EVKey"
-
-        /**
-         * How long to leave the transcript on the clipboard before taking it
-         * back. ACTION_PASTE returns before the target app has read the clip,
-         * so clearing immediately pastes nothing.
-         */
-        private const val CLIPBOARD_RELEASE_MS = 2500L
 
         @Volatile var instance: EssentialKeyService? = null
             private set
@@ -181,12 +172,52 @@ class EssentialKeyService : AccessibilityService() {
      * replaces the field wholesale and loses anything already in it.
      * Returns true if it landed in a field, false if it is only on the clipboard.
      */
+    private fun findActiveInputNode(): AccessibilityNodeInfo? {
+        // 1. Direct input focus on the service
+        runCatching { findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }
+            .getOrNull()
+            ?.let { if (it.isEditable || it.isFocused) return it }
+
+        // 2. Active window root input focus
+        runCatching { rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }
+            .getOrNull()
+            ?.let { if (it.isEditable || it.isFocused) return it }
+
+        // 3. Search across all interactive windows
+        runCatching {
+            for (window in windows) {
+                val root = window.root ?: continue
+                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                if (focused != null && (focused.isEditable || focused.isFocused)) {
+                    return focused
+                }
+            }
+        }
+
+        // 4. Recursive search in rootInActiveWindow for focused & editable node
+        runCatching {
+            rootInActiveWindow?.let { root ->
+                findFocusedEditableRecursive(root)?.let { return it }
+            }
+        }
+
+        return null
+    }
+
+    private fun findFocusedEditableRecursive(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isFocused && node.isEditable) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = findFocusedEditableRecursive(child)
+            if (found != null) return found
+        }
+        return null
+    }
+
     fun insertText(text: String): Boolean {
         if (text.isBlank()) return false
 
-        val focus = runCatching { findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }.getOrNull()
-            ?: runCatching { rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }.getOrNull()
-            ?: return false
+        val focus = findActiveInputNode() ?: return false
 
         return try {
             if (!focus.isEditable) return false
@@ -194,7 +225,7 @@ class EssentialKeyService : AccessibilityService() {
             val shouldCopy = Prefs.get(this).now.copyToClipboard
 
             if (!shouldCopy) {
-                // Direct insertion: does NOT touch the clipboard, avoiding system paste popups and Gboard banners
+                // Direct insertion: does NOT touch the clipboard at all, avoiding system paste popups and Gboard banners
                 val isHint = focus.isShowingHintText ||
                     (focus.hintText != null && focus.text?.toString() == focus.hintText?.toString())
                 val rawText = if (isHint || focus.text == null) "" else focus.text.toString()
@@ -220,7 +251,15 @@ class EssentialKeyService : AccessibilityService() {
                 }
                 val setOk = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
                 if (setOk) {
-                    val targetCursor = if (rawText.isEmpty()) text.length else (selStart.coerceAtLeast(0) + text.length + 1)
+                    val targetCursor = if (rawText.isEmpty()) {
+                        text.length
+                    } else if (selStart in 0..rawText.length && selEnd in selStart..rawText.length) {
+                        val prefix = rawText.substring(0, selStart)
+                        val spaceBefore = if (prefix.isNotEmpty() && !prefix.endsWith(" ") && !prefix.endsWith("\n")) " " else ""
+                        (prefix.length + spaceBefore.length + text.length).coerceIn(0, newText.length)
+                    } else {
+                        newText.length
+                    }
                     val selArgs = android.os.Bundle().apply {
                         putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, targetCursor)
                         putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, targetCursor)
@@ -228,15 +267,16 @@ class EssentialKeyService : AccessibilityService() {
                     focus.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, selArgs)
                     return true
                 }
+                // Direct insertion failed and copyToClipboard is OFF — NEVER touch clipboard!
+                return false
             }
 
-            // Fallback for copyToClipboard = true or custom fields not supporting SET_TEXT
+            // Fallback for copyToClipboard = true:
             val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clip.setPrimaryClip(ClipData.newPlainText("Essential Voice", text))
 
             val pasted = focus.performAction(AccessibilityNodeInfo.ACTION_PASTE)
             if (pasted) {
-                releaseClipboard(clip)
                 return true
             }
 
@@ -245,9 +285,7 @@ class EssentialKeyService : AccessibilityService() {
                     AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text,
                 )
             }
-            val setSuccess = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-            releaseClipboard(clip)
-            setSuccess
+            focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
         } catch (t: Throwable) {
             Log.w(TAG, "insertText failed", t)
             false
@@ -255,16 +293,5 @@ class EssentialKeyService : AccessibilityService() {
             @Suppress("DEPRECATION")
             runCatching { focus.recycle() }
         }
-    }
-    private fun dictatedClip(text: String): ClipData =
-        ClipData.newPlainText("Essential Voice", text)
-
-    private fun releaseClipboard(clip: ClipboardManager) {
-        if (Prefs.get(this).now.copyToClipboard) return
-        handler.postDelayed({
-            runCatching {
-                clip.clearPrimaryClip()
-            }.onFailure { Log.w(TAG, "could not release the clipboard", it) }
-        }, 800L)
     }
 }
