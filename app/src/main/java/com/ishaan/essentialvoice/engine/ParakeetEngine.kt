@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.ishaan.essentialvoice.Prefs
 import com.ishaan.essentialvoice.voice.SAMPLE_RATE
+import com.ishaan.essentialvoice.whisper.ModelCatalog
 import com.ishaan.essentialvoice.whisper.QualityTier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -34,18 +35,39 @@ object ParakeetEngine : SttEngine {
         Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
 
     override suspend fun warm(context: Context, tier: QualityTier): Boolean = withContext(Dispatchers.Default) {
-        if (!ParakeetLib.ensureLoaded()) return@withContext false
-
-        val modelDir = tier.file(context).parentFile ?: return@withContext false
-        val encoder = File(modelDir, "encoder.int8.onnx")
-        val decoder = File(modelDir, "decoder.int8.onnx")
-        val joiner = File(modelDir, "joiner.int8.onnx")
-        val tokens = File(modelDir, "tokens.txt")
-
-        if (!encoder.exists() || !decoder.exists() || !joiner.exists() || !tokens.exists()) {
-            // For single-file testing, check if the single file exists
-            if (!tier.file(context).exists()) return@withContext false
+        if (!ParakeetLib.ensureLoaded()) {
+            Log.w(TAG, "ParakeetLib is not loaded")
+            return@withContext false
         }
+
+        val baseDir = ModelCatalog.dir(context)
+        val tierDir = File(baseDir, tier.id)
+        val searchDirs = listOf(tierDir, baseDir)
+
+        val encoder = searchDirs.map { File(it, "encoder.int8.onnx") }.firstOrNull { it.exists() }
+            ?: searchDirs.map { File(it, "encoder.onnx") }.firstOrNull { it.exists() }
+            ?: searchDirs.map { File(it, tier.fileName) }.firstOrNull { it.exists() && it.name.endsWith(".onnx") }
+            ?: searchDirs.map { File(it, "model.int8.onnx") }.firstOrNull { it.exists() }
+            ?: searchDirs.map { File(it, "model.onnx") }.firstOrNull { it.exists() }
+
+        val decoder = searchDirs.map { File(it, "decoder.int8.onnx") }.firstOrNull { it.exists() }
+            ?: searchDirs.map { File(it, "decoder.onnx") }.firstOrNull { it.exists() }
+
+        val joiner = searchDirs.map { File(it, "joiner.int8.onnx") }.firstOrNull { it.exists() }
+            ?: searchDirs.map { File(it, "joiner.onnx") }.firstOrNull { it.exists() }
+
+        val tokens = searchDirs.map { File(it, "tokens.txt") }.firstOrNull { it.exists() }
+            ?: searchDirs.map { File(it, "tokens.json") }.firstOrNull { it.exists() }
+
+        if (encoder == null || !encoder.exists()) {
+            Log.w(TAG, "Parakeet encoder not found for tier ${tier.id}")
+            return@withContext false
+        }
+
+        val encoderPath = encoder.absolutePath
+        val decoderPath = decoder?.absolutePath ?: ""
+        val joinerPath = joiner?.absolutePath ?: ""
+        val tokensPath = tokens?.absolutePath ?: ""
 
         lock.withLock {
             if (ptr != 0L && loadedTier == tier.id) {
@@ -55,10 +77,10 @@ object ParakeetEngine : SttEngine {
 
             val t0 = System.currentTimeMillis()
             val next = ParakeetLib.nativeInit(
-                encoder.absolutePath,
-                decoder.absolutePath,
-                joiner.absolutePath,
-                tokens.absolutePath,
+                encoderPath,
+                decoderPath,
+                joinerPath,
+                tokensPath,
                 defaultThreads(),
             )
             if (next == 0L) {

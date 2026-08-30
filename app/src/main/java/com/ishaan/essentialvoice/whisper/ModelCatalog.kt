@@ -36,6 +36,17 @@ data class QualityTier(
 
     fun isInstalled(context: Context): Boolean {
         val f = file(context)
+        if (engine == EngineType.PARAKEET) {
+            val tierDir = File(ModelCatalog.dir(context), id)
+            val baseDir = ModelCatalog.dir(context)
+            val hasOnnx = listOf(
+                File(tierDir, "encoder.int8.onnx"),
+                File(tierDir, "encoder.onnx"),
+                File(baseDir, "encoder.int8.onnx"),
+                File(baseDir, fileName),
+            ).any { it.exists() && it.length() > 0 }
+            if (hasOnnx) return true
+        }
         return if (bytes > 0) (f.isFile && f.length() == bytes) else (f.isFile && f.length() > 0)
     }
 

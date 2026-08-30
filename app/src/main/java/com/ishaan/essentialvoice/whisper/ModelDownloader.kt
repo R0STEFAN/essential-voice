@@ -109,6 +109,13 @@ object ModelDownloader {
                 return@withContext false
             }
 
+            if (target.name.endsWith(".zip")) {
+                runCatching {
+                    val outDir = File(ModelCatalog.dir(context), tier.id)
+                    unzip(target, outDir)
+                }
+            }
+
             _state.value = State.Idle
             true
         } catch (t: Throwable) {
@@ -122,5 +129,22 @@ object ModelDownloader {
     fun delete(context: Context, tier: QualityTier) {
         tier.file(context).delete()
         File(ModelCatalog.dir(context), tier.fileName + ".part").delete()
+        val tierDir = File(ModelCatalog.dir(context), tier.id)
+        if (tierDir.isDirectory) tierDir.deleteRecursively()
+    }
+
+    private fun unzip(zipFile: File, targetDir: File) {
+        if (!targetDir.exists()) targetDir.mkdirs()
+        java.util.zip.ZipInputStream(zipFile.inputStream().buffered()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val file = File(targetDir, entry.name.substringAfterLast('/'))
+                if (!entry.isDirectory && file.name.isNotBlank()) {
+                    file.outputStream().buffered().use { out -> zis.copyTo(out) }
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
     }
 }
