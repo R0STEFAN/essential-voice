@@ -39,10 +39,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -99,6 +100,7 @@ fun HomeScreen(
     val type = LocalEvType.current
     val scope = rememberCoroutineScope()
     var showUrlDialog by remember { mutableStateOf(false) }
+    var modelsRevision by remember { mutableIntStateOf(0) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -116,6 +118,7 @@ fun HomeScreen(
                     }
                     prefs.setQualityTier("custom_$safeName")
                     Dictation.onTierChanged()
+                    modelsRevision++
                 }
             }
         }
@@ -280,6 +283,9 @@ fun HomeScreen(
         // Sideways, same as What's new: three cards stacked took most of a
         // screen to say one thing. IntrinsicSize.Max keeps them level, which a
         // lazy row could not do.
+        val allTiers = remember(modelsRevision, settings.qualityTier) {
+            ModelCatalog.allTiers(context)
+        }
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
@@ -287,7 +293,7 @@ fun HomeScreen(
                 .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            ModelCatalog.allTiers(context).forEach { tier ->
+            allTiers.forEach { tier ->
                 TierCard(
                     modifier = Modifier.width(268.dp).fillMaxHeight(),
                     tier = tier,
@@ -298,8 +304,18 @@ fun HomeScreen(
                         prefs.setQualityTier(tier.id)
                         Dictation.onTierChanged()
                     },
-                    onDownload = { onDownload(tier) },
-                    onDelete = { onDeleteModel(tier) },
+                    onDownload = {
+                        onDownload(tier)
+                        modelsRevision++
+                    },
+                    onDelete = {
+                        onDeleteModel(tier)
+                        if (settings.qualityTier == tier.id) {
+                            prefs.setQualityTier("futo_244")
+                            Dictation.onTierChanged()
+                        }
+                        modelsRevision++
+                    },
                     onCancel = onCancelDownload,
                 )
             }
@@ -401,6 +417,7 @@ fun HomeScreen(
                         )
                         showUrlDialog = false
                         onDownload(customTier)
+                        modelsRevision++
                     }
                 },
                 dismissButton = {

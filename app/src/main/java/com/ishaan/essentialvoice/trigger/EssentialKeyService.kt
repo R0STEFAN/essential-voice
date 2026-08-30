@@ -39,7 +39,7 @@ class EssentialKeyService : AccessibilityService() {
          * back. ACTION_PASTE returns before the target app has read the clip,
          * so clearing immediately pastes nothing.
          */
-        private const val CLIPBOARD_RELEASE_MS = 400L
+        private const val CLIPBOARD_RELEASE_MS = 2500L
 
         @Volatile var instance: EssentialKeyService? = null
             private set
@@ -222,12 +222,7 @@ class EssentialKeyService : AccessibilityService() {
      * message, an address or a password spoken out loud.
      */
     private fun dictatedClip(text: String): ClipData =
-        ClipData.newPlainText("Essential Voice", text).apply {
-            description.extras = PersistableBundle().apply {
-                putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
-                putBoolean("android.content.extra.IS_SENSITIVE", true)
-            }
-        }
+        ClipData.newPlainText("Essential Voice", text)
 
     /**
      * Give the clipboard back after a paste.
