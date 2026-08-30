@@ -88,3 +88,34 @@ target_link_options(essentialwhisper PRIVATE -Wl,--gc-sections)
 target_link_options(essentialwhisper PRIVATE -Wl,--exclude-libs,ALL)
 
 target_link_libraries(essentialwhisper ${LOG_LIB} android ggml)
+
+# -----------------------------------------------------------------------------
+# Parakeet (sherpa-onnx) engine
+# -----------------------------------------------------------------------------
+set(SHERPA_ONNX_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../sherpa-onnx-src)
+
+add_library(essentialparakeet SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/parakeet_jni.cpp
+)
+
+target_include_directories(essentialparakeet PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${SHERPA_ONNX_DIR}
+    ${SHERPA_ONNX_DIR}/sherpa-onnx/c-api
+)
+
+target_compile_options(essentialparakeet PRIVATE -O3 -fvisibility=hidden -fvisibility-inlines-hidden)
+target_compile_options(essentialparakeet PRIVATE -ffunction-sections -fdata-sections)
+target_link_options(essentialparakeet PRIVATE -Wl,--gc-sections)
+
+if (EXISTS ${SHERPA_ONNX_DIR}/build/lib/libsherpa-onnx-c-api.a)
+    target_link_libraries(essentialparakeet
+        ${LOG_LIB}
+        android
+        ${SHERPA_ONNX_DIR}/build/lib/libsherpa-onnx-c-api.a
+        ${SHERPA_ONNX_DIR}/build/lib/libsherpa-onnx-core.a
+        ${SHERPA_ONNX_DIR}/build/lib/libonnxruntime.so
+    )
+else()
+    target_link_libraries(essentialparakeet ${LOG_LIB} android)
+endif()
