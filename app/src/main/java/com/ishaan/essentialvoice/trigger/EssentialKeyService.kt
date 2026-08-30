@@ -52,6 +52,69 @@ class EssentialKeyService : AccessibilityService() {
             KeyEvent.KEYCODE_WAKEUP,
             KeyEvent.KEYCODE_SLEEP,
         )
+
+        private val COMMON_PLACEHOLDERS = setOf(
+            "повідомлення",
+            "повідомлення...",
+            "введіть повідомлення",
+            "введіть повідомлення...",
+            "напишіть повідомлення",
+            "напишіть повідомлення...",
+            "написати повідомлення",
+            "написати повідомлення...",
+            "коментар",
+            "коментар...",
+            "залишити коментар",
+            "залишити коментар...",
+            "додати коментар",
+            "додати коментар...",
+            "опис",
+            "підпис",
+            "пошук",
+            "пошук...",
+            "текст",
+            "введіть текст",
+            "введіть текст...",
+            "message",
+            "message...",
+            "type a message",
+            "type a message...",
+            "write a message",
+            "write a message...",
+            "send a message",
+            "send a message...",
+            "comment",
+            "comment...",
+            "add a comment",
+            "add a comment...",
+            "write a comment",
+            "write a comment...",
+            "leave a comment",
+            "leave a comment...",
+            "caption",
+            "caption...",
+            "add a caption",
+            "add a caption...",
+            "search",
+            "search...",
+            "type here",
+            "type here...",
+            "enter text",
+            "enter text...",
+            "text message",
+            "text message...",
+            "сообщение",
+            "сообщение...",
+            "введите сообщение",
+            "введите сообщение...",
+            "напишите сообщение",
+            "напишите сообщение...",
+            "комментарий",
+            "комментарий...",
+            "подпись",
+            "поиск",
+            "поиск...",
+        )
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -231,6 +294,33 @@ class EssentialKeyService : AccessibilityService() {
                 ?: focus.extras?.getCharSequence("AccessibilityNodeInfo.hintText")
         }.getOrNull()?.toString()?.trim()
         if (extraHint != null && text.equals(extraHint, ignoreCase = true)) return true
+
+        val lower = text.lowercase()
+        val selStart = focus.textSelectionStart
+        val selEnd = focus.textSelectionEnd
+
+        // If cursor/selection is at the start (0 or -1), check common placeholder heuristics
+        if (selStart <= 0 && selEnd <= 0) {
+            if (COMMON_PLACEHOLDERS.contains(lower)) return true
+
+            // Telegram specifically sets text to getHint() when field is empty
+            val pkg = focus.packageName?.toString()?.lowercase() ?: ""
+            if (pkg.contains("telegram") || pkg.contains("chatalert") || pkg.contains("messenger")) {
+                if (lower.length <= 40 && (
+                        lower.contains("повідомлен") ||
+                        lower.contains("message") ||
+                        lower.contains("сообщен") ||
+                        lower.contains("комент") ||
+                        lower.contains("comment") ||
+                        lower.contains("пошук") ||
+                        lower.contains("search") ||
+                        lower.contains("підпис") ||
+                        lower.contains("caption")
+                    )) {
+                    return true
+                }
+            }
+        }
 
         return false
     }
