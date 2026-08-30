@@ -191,6 +191,46 @@ class EssentialKeyService : AccessibilityService() {
         return try {
             if (!focus.isEditable) return false
 
+            val shouldCopy = Prefs.get(this).now.copyToClipboard
+
+            if (!shouldCopy) {
+                // Direct insertion: does NOT touch the clipboard, avoiding system paste popups and Gboard banners
+                val isHint = focus.isShowingHintText ||
+                    (focus.hintText != null && focus.text?.toString() == focus.hintText?.toString())
+                val rawText = if (isHint || focus.text == null) "" else focus.text.toString()
+
+                val selStart = focus.textSelectionStart
+                val selEnd = focus.textSelectionEnd
+
+                val newText = if (rawText.isEmpty()) {
+                    text
+                } else if (selStart in 0..rawText.length && selEnd in selStart..rawText.length) {
+                    val prefix = rawText.substring(0, selStart)
+                    val suffix = rawText.substring(selEnd)
+                    val spaceBefore = if (prefix.isNotEmpty() && !prefix.endsWith(" ") && !prefix.endsWith("\n")) " " else ""
+                    val spaceAfter = if (suffix.isNotEmpty() && !suffix.startsWith(" ") && !suffix.startsWith("\n")) " " else ""
+                    "$prefix$spaceBefore$text$spaceAfter$suffix"
+                } else {
+                    val space = if (!rawText.endsWith(" ") && !rawText.endsWith("\n")) " " else ""
+                    "$rawText$space$text"
+                }
+
+                val args = android.os.Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
+                }
+                val setOk = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                if (setOk) {
+                    val targetCursor = if (rawText.isEmpty()) text.length else (selStart.coerceAtLeast(0) + text.length + 1)
+                    val selArgs = android.os.Bundle().apply {
+                        putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, targetCursor)
+                        putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, targetCursor)
+                    }
+                    focus.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, selArgs)
+                    return true
+                }
+            }
+
+            // Fallback for copyToClipboard = true or custom fields not supporting SET_TEXT
             val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clip.setPrimaryClip(ClipData.newPlainText("Essential Voice", text))
 
@@ -200,7 +240,6 @@ class EssentialKeyService : AccessibilityService() {
                 return true
             }
 
-            // Fall back to setting text only if paste action failed
             val args = android.os.Bundle().apply {
                 putCharSequence(
                     AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text,
