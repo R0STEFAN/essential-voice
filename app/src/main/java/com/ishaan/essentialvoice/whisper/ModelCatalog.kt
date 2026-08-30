@@ -105,14 +105,13 @@ object ModelCatalog {
             bestOf = 5,
             millisPer10s = 8_200,
         ),
-
         // ---- Parakeet Engine Models ----
         QualityTier(
             id = "parakeet_tdt_v3",
             label = "Parakeet TDT 0.6B v3",
             sub = "NVIDIA FastConformer-TDT (INT8). Super fast on mobile, 25 European languages.",
-            fileName = "parakeet-tdt-0.6b-v3-int8.onnx",
-            bytes = 310_000_000L,
+            fileName = "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+            bytes = 487_170_055L,
             engine = EngineType.PARAKEET,
             beamSize = 1,
             bestOf = 1,

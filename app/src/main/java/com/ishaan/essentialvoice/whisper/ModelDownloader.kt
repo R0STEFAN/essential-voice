@@ -66,11 +66,10 @@ object ModelDownloader {
                 return@withContext false
             }
 
-            if (total <= 0) {
-                val cl = conn.contentLengthLong
-                if (cl > 0) total = if (done > 0) done + cl else cl
+            val cl = conn.contentLengthLong
+            if (cl > 0) {
+                total = if (done > 0) done + cl else cl
             }
-
             RandomAccessFile(part, "rw").use { out ->
                 out.seek(done)
                 conn.inputStream.use { input ->
