@@ -86,9 +86,10 @@ object ParakeetEngine : SttEngine {
                 this.decodingMethod = "greedy_search"
             }
 
-            val next = runCatching { OfflineRecognizer(config = config) }.getOrNull()
+            val next = runCatching {
+                OfflineRecognizer(assetManager = null, config = config)
+            }.onFailure { Log.w(TAG, "failed to initialize Sherpa-ONNX OfflineRecognizer", it) }.getOrNull()
             if (next == null) {
-                Log.w(TAG, "failed to initialize Sherpa-ONNX OfflineRecognizer")
                 return@withLock false
             }
 
@@ -116,9 +117,10 @@ object ParakeetEngine : SttEngine {
 
                 val text = runCatching {
                     val stream = rec.createStream()
-                    stream.acceptWaveform(audio, SAMPLE_RATE)
+                    stream.acceptWaveform(samples = audio, sampleRate = SAMPLE_RATE)
                     rec.decode(stream)
-                    val resultText = stream.result.text
+                    val result = rec.getResult(stream)
+                    val resultText = result.text
                     stream.release()
                     resultText
                 }.getOrElse { return@withLock Result.failure(it) }
