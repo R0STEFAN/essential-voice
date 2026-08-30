@@ -13,6 +13,7 @@ import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.animation.Interpolator
