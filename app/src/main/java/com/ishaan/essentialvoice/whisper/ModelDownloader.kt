@@ -95,8 +95,7 @@ object ModelDownloader {
                         }
                     }
 
-                    if (target.exists()) target.delete()
-                    if (!part.renameTo(target)) {
+                    if (!moveIntoPlace(part, target)) {
                         _state.value = State.Failed(tier.id, "Could not move $fileName into place")
                         return@withContext false
                     }
@@ -176,8 +175,7 @@ object ModelDownloader {
                 return@withContext false
             }
 
-            if (target.exists()) target.delete()
-            if (!part.renameTo(target)) {
+            if (!moveIntoPlace(part, target)) {
                 _state.value = State.Failed(tier.id, "Could not move file into place")
                 return@withContext false
             }
@@ -197,9 +195,21 @@ object ModelDownloader {
             conn?.disconnect()
         }
     }
+    private fun moveIntoPlace(source: File, target: File): Boolean {
+        if (target.exists()) target.delete()
+        if (source.renameTo(target)) return true
+        return runCatching {
+            source.inputStream().buffered().use { input ->
+                target.outputStream().buffered().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            source.delete()
+            true
+        }.getOrDefault(false)
+    }
 
     fun delete(context: Context, tier: QualityTier) {
-        tier.file(context).delete()
         File(ModelCatalog.dir(context), tier.fileName + ".part").delete()
         val tierDir = File(ModelCatalog.dir(context), tier.id)
         if (tierDir.isDirectory) tierDir.deleteRecursively()
