@@ -202,7 +202,7 @@ object Dictation {
             if (typed) {
                 landed = true
             } else if (!s.copyToClipboard) {
-                toast("No text field was focused")
+                toast(text)
                 landed = true
             }
         }

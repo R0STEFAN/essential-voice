@@ -185,18 +185,18 @@ class EssentialKeyService : AccessibilityService() {
         if (text.isBlank()) return false
 
         val focus = runCatching { findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }.getOrNull()
+            ?: runCatching { rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) }.getOrNull()
             ?: return false
 
         return try {
             if (!focus.isEditable) return false
 
             val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val previous = runCatching { clip.primaryClip }.getOrNull()
+            clip.setPrimaryClip(ClipData.newPlainText("Essential Voice", text))
 
-            clip.setPrimaryClip(dictatedClip(text))
             val pasted = focus.performAction(AccessibilityNodeInfo.ACTION_PASTE)
             if (pasted) {
-                releaseClipboard(clip, previous)
+                releaseClipboard(clip)
                 return true
             }
 
@@ -206,8 +206,9 @@ class EssentialKeyService : AccessibilityService() {
                     AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text,
                 )
             }
-            focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-                .also { releaseClipboard(clip, previous) }
+            val setSuccess = focus.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            releaseClipboard(clip)
+            setSuccess
         } catch (t: Throwable) {
             Log.w(TAG, "insertText failed", t)
             false
@@ -216,38 +217,15 @@ class EssentialKeyService : AccessibilityService() {
             runCatching { focus.recycle() }
         }
     }
-    /**
-     * The transcript, flagged so the system does not put it in clipboard history
-     * or flash it up in the paste toast. It is dictation: it may well be a
-     * message, an address or a password spoken out loud.
-     */
     private fun dictatedClip(text: String): ClipData =
         ClipData.newPlainText("Essential Voice", text)
 
-    /**
-     * Give the clipboard back after a paste.
-     *
-     * With "Copy to clipboard" off, the transcript must not still be sitting
-     * there afterwards — that switch being off is the whole promise. Restoring
-     * [previous] is the nice outcome, but it is usually null (the clipboard
-     * cannot be read from here), and the old code only restored when it was
-     * non-null, which meant that in practice the transcript was simply left on
-     * the clipboard and the switch did nothing. So: put back what there was if
-     * it is known, and otherwise clear it outright.
-     *
-     * Delayed, because ACTION_PASTE has already returned by the time the target
-     * app actually reads the clip.
-     */
-    private fun releaseClipboard(clip: ClipboardManager, previous: ClipData?) {
+    private fun releaseClipboard(clip: ClipboardManager) {
         if (Prefs.get(this).now.copyToClipboard) return
         handler.postDelayed({
             runCatching {
-                if (previous != null) {
-                    clip.setPrimaryClip(previous)
-                } else {
-                    clip.clearPrimaryClip()
-                }
+                clip.clearPrimaryClip()
             }.onFailure { Log.w(TAG, "could not release the clipboard", it) }
-        }, CLIPBOARD_RELEASE_MS)
+        }, 800L)
     }
 }
