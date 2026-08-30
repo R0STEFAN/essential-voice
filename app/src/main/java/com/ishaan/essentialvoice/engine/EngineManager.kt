@@ -9,6 +9,7 @@ object EngineManager {
     fun getEngine(type: EngineType): SttEngine = when (type) {
         EngineType.WHISPER -> WhisperEngine
         EngineType.PARAKEET -> ParakeetEngine
+        EngineType.GEMINI -> GeminiEngine
     }
 
     fun activeEngine(context: Context): SttEngine {

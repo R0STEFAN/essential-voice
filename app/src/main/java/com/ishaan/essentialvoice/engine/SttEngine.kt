@@ -5,7 +5,8 @@ import com.ishaan.essentialvoice.whisper.QualityTier
 
 enum class EngineType(val id: String, val label: String) {
     WHISPER("whisper", "Whisper (GGML)"),
-    PARAKEET("parakeet", "Parakeet (TDT / ONNX)"),
+    PARAKEET("parakeet", "Parakeet (TDT)"),
+    GEMINI("gemini", "Gemini (Cloud)"),
     ;
 
     companion object {

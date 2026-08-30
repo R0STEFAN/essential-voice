@@ -26,6 +26,8 @@ data class Settings(
     val slideFrom: String,
     val qualityTier: String,
     val activeEngine: com.ishaan.essentialvoice.engine.EngineType,
+    val geminiApiKey: String,
+    val geminiModel: String,
     val language: String,
     val idleUnloadSeconds: Int,
     val typeIntoField: Boolean,
@@ -66,6 +68,8 @@ class Prefs private constructor(context: Context) {
             sp.getString(K_ENGINE, com.ishaan.essentialvoice.engine.EngineType.WHISPER.id)
                 ?: com.ishaan.essentialvoice.engine.EngineType.WHISPER.id
         ),
+        geminiApiKey = sp.getString(K_GEMINI_API_KEY, "") ?: "",
+        geminiModel = sp.getString(K_GEMINI_MODEL, DEFAULT_GEMINI_MODEL) ?: DEFAULT_GEMINI_MODEL,
         language = sp.getString(K_LANGUAGE, LANG_UK) ?: LANG_UK,
         idleUnloadSeconds = sp.getInt(K_IDLE_UNLOAD, 300),
         typeIntoField = sp.getBoolean(K_TYPE, true),
@@ -92,6 +96,8 @@ class Prefs private constructor(context: Context) {
     fun setQualityTier(v: String) = sp.edit().putString(K_TIER, v).apply()
     fun setActiveEngine(v: com.ishaan.essentialvoice.engine.EngineType) =
         sp.edit().putString(K_ENGINE, v.id).apply()
+    fun setGeminiApiKey(v: String) = sp.edit().putString(K_GEMINI_API_KEY, v).apply()
+    fun setGeminiModel(v: String) = sp.edit().putString(K_GEMINI_MODEL, v).apply()
     fun setLanguage(v: String) = sp.edit().putString(K_LANGUAGE, v).apply()
     fun setIdleUnloadSeconds(v: Int) = sp.edit().putInt(K_IDLE_UNLOAD, v).apply()
     fun setTypeIntoField(v: Boolean) = sp.edit().putBoolean(K_TYPE, v).apply()
@@ -150,6 +156,9 @@ class Prefs private constructor(context: Context) {
 
         private const val K_LANGUAGE = "dictation_language"
         private const val K_ENGINE = "active_engine_type"
+        const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+        private const val K_GEMINI_API_KEY = "gemini_api_key"
+        private const val K_GEMINI_MODEL = "gemini_model"
         private const val K_KEYCODE = "trigger_keycode"
         private const val K_SCANCODE = "trigger_scancode"
         private const val K_TRIGGER_MODE = "trigger_mode"

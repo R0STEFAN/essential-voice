@@ -101,6 +101,9 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var showUrlDialog by remember { mutableStateOf(false) }
     var modelsRevision by remember { mutableIntStateOf(0) }
+    var testKeyResult by remember { mutableStateOf<String?>(null) }
+    var isTestingKey by remember { mutableStateOf(false) }
+    var geminiKeyInput by rememberSaveable(settings.geminiApiKey) { mutableStateOf(settings.geminiApiKey) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -279,12 +282,13 @@ fun HomeScreen(
             Column(Modifier.padding(18.dp)) {
                 EvText("Recognition Engine", type.body)
                 Spacer(Modifier.height(4.dp))
-                EvText("Whisper uses Transformer architecture; Parakeet uses FastConformer-TDT.", type.sub)
+                EvText("Whisper (offline GGML), Parakeet (offline TDT) or Gemini (cloud AI Studio).", type.sub)
                 Spacer(Modifier.height(12.dp))
                 EvSegmented(
                     options = listOf(
-                        com.ishaan.essentialvoice.engine.EngineType.WHISPER.id to "Whisper (GGML)",
-                        com.ishaan.essentialvoice.engine.EngineType.PARAKEET.id to "Parakeet (TDT)",
+                        com.ishaan.essentialvoice.engine.EngineType.WHISPER.id to "Whisper",
+                        com.ishaan.essentialvoice.engine.EngineType.PARAKEET.id to "Parakeet",
+                        com.ishaan.essentialvoice.engine.EngineType.GEMINI.id to "Gemini",
                     ),
                     selectedId = settings.activeEngine.id,
                 ) { id ->
@@ -298,73 +302,148 @@ fun HomeScreen(
             }
         }
 
-        // ---- quality -------------------------------------------------------
-        SectionLabel("Recognition models")
-        EvText(
-            "Models available for ${settings.activeEngine.label}. Running locally on this device.",
-            type.sub,
-            Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp),
-        )
-        val allTiers = remember(modelsRevision, settings.qualityTier, settings.activeEngine) {
-            ModelCatalog.tiersForEngine(context, settings.activeEngine)
-        }
-        Row(
-            Modifier
-                .horizontalScroll(rememberScrollState())
-                .height(IntrinsicSize.Max)
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            allTiers.forEach { tier ->
-                TierCard(
-                    modifier = Modifier.width(268.dp).fillMaxHeight(),
-                    tier = tier,
-                    selected = settings.qualityTier == tier.id,
-                    installed = tier.isInstalled(context),
-                    download = download,
-                    onSelect = {
-                        prefs.setQualityTier(tier.id)
-                        Dictation.onTierChanged()
-                    },
-                    onDownload = {
-                        onDownload(tier)
-                        modelsRevision++
-                    },
-                    onDelete = {
-                        onDeleteModel(tier)
-                        if (settings.qualityTier == tier.id) {
-                            prefs.setQualityTier("futo_244")
-                            Dictation.onTierChanged()
+        if (settings.activeEngine == com.ishaan.essentialvoice.engine.EngineType.GEMINI) {
+            // ---- Gemini Cloud API Settings ---------------------------------
+            SectionLabel("Gemini Cloud API")
+            Panel {
+                Column(Modifier.padding(18.dp)) {
+                    EvText("Google AI Studio API Key", type.body)
+                    Spacer(Modifier.height(4.dp))
+                    EvText("Used for ultra-accurate cloud transcription with Google Gemini Flash.", type.sub)
+                    Spacer(Modifier.height(10.dp))
+                    BasicTextField(
+                        value = geminiKeyInput,
+                        onValueChange = {
+                            geminiKeyInput = it
+                            prefs.setGeminiApiKey(it)
+                            testKeyResult = null
+                        },
+                        textStyle = type.mono.copy(color = EV.Ink),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(EV.CornerButton))
+                            .background(EV.SurfaceSunk)
+                            .padding(12.dp),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        EvButton(
+                            label = if (isTestingKey) "TESTING..." else "TEST KEY",
+                            kind = EvButtonKind.Primary,
+                            enabled = !isTestingKey && geminiKeyInput.isNotBlank(),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            isTestingKey = true
+                            testKeyResult = null
+                            scope.launch {
+                                val res = com.ishaan.essentialvoice.engine.GeminiEngine
+                                    .testApiKey(geminiKeyInput, settings.geminiModel)
+                                isTestingKey = false
+                                testKeyResult = res.fold(
+                                    onSuccess = { "✓ $it" },
+                                    onFailure = { "✗ ${it.message ?: "Failed"}" }
+                                )
+                            }
                         }
-                        modelsRevision++
-                    },
-                    onCancel = onCancelDownload,
-                )
+                    }
+                    if (testKeyResult != null) {
+                        Spacer(Modifier.height(10.dp))
+                        val isSuccess = testKeyResult!!.startsWith("✓")
+                        EvText(
+                            testKeyResult!!,
+                            type.sub,
+                            color = if (isSuccess) EV.Green else EV.Red,
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Hairline(inset = 0.dp)
+                    Spacer(Modifier.height(12.dp))
+                    EvText("Gemini Model", type.body)
+                    Spacer(Modifier.height(4.dp))
+                    EvText("Gemini 2.5 Flash is recommended for fast, high-accuracy speech transcription.", type.sub)
+                    Spacer(Modifier.height(10.dp))
+                    EvSegmented(
+                        options = listOf(
+                            "gemini-2.5-flash" to "2.5 Flash",
+                            "gemini-2.0-flash" to "2.0 Flash",
+                        ),
+                        selectedId = settings.geminiModel,
+                    ) { prefs.setGeminiModel(it) }
+                }
             }
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            EvButton(
-                label = "Import model file",
-                kind = EvButtonKind.Quiet,
-                modifier = Modifier.weight(1f),
+        } else {
+            // ---- Offline models --------------------------------------------
+            SectionLabel("Recognition models")
+            EvText(
+                "Models available for ${settings.activeEngine.label}. Running locally on this device.",
+                type.sub,
+                Modifier.padding(start = 4.dp, end = 4.dp, bottom = 14.dp),
+            )
+            val allTiers = remember(modelsRevision, settings.qualityTier, settings.activeEngine) {
+                ModelCatalog.tiersForEngine(context, settings.activeEngine)
+            }
+            Row(
+                Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .height(IntrinsicSize.Max)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                filePicker.launch(arrayOf("*/*"))
+                allTiers.forEach { tier ->
+                    TierCard(
+                        modifier = Modifier.width(268.dp).fillMaxHeight(),
+                        tier = tier,
+                        selected = settings.qualityTier == tier.id,
+                        installed = tier.isInstalled(context),
+                        download = download,
+                        onSelect = {
+                            prefs.setQualityTier(tier.id)
+                            Dictation.onTierChanged()
+                        },
+                        onDownload = {
+                            onDownload(tier)
+                            modelsRevision++
+                        },
+                        onDelete = {
+                            onDeleteModel(tier)
+                            if (settings.qualityTier == tier.id) {
+                                prefs.setQualityTier("futo_244")
+                                Dictation.onTierChanged()
+                            }
+                            modelsRevision++
+                        },
+                        onCancel = onCancelDownload,
+                    )
+                }
             }
-            EvButton(
-                label = "Download by URL",
-                kind = EvButtonKind.Quiet,
-                modifier = Modifier.weight(1f),
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                showUrlDialog = true
+                EvButton(
+                    label = "Import model file",
+                    kind = EvButtonKind.Quiet,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    filePicker.launch(arrayOf("*/*"))
+                }
+                EvButton(
+                    label = "Download by URL",
+                    kind = EvButtonKind.Quiet,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    showUrlDialog = true
+                }
             }
+            Spacer(Modifier.height(12.dp))
+            StorageLine(context)
         }
-        Spacer(Modifier.height(12.dp))
-        StorageLine(context)
-
         if (showUrlDialog) {
             var urlInput by remember { mutableStateOf("") }
             var nameInput by remember { mutableStateOf("") }
